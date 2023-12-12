@@ -1,0 +1,7 @@
+%2F dir 1697722622766+493+tigrulya+hadoop 0 0 test.txt test.orc test.parquet test.json test.csv 
+%2Ftest.json file part-0 18 36 1697722536260+420+tigrulya+hadoop 
+%2Ftest.parquet file part-0 54 448 1697722536359+420+tigrulya+hadoop 
+%2Ftest.csv file part-0 6 6 1697722536193+420+tigrulya+hadoop 
+%2Ftest.orc file part-0 502 259 1697722536317+420+tigrulya+hadoop 
+%2Ftest.txt file part-0 12 6 1697722536407+420+tigrulya+hadoop 
+%2Ftest.txt file part-0 0 6 1697722536407+420+tigrulya+hadoop 
