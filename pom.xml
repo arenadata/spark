@@ -1930,6 +1930,10 @@
           </exclusion>
           <exclusion>
             <groupId>${hive.group}</groupId>
+            <artifactId>hive-service-rpc</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>${hive.group}</groupId>
             <artifactId>hive-shims</artifactId>
           </exclusion>
           <exclusion>
@@ -2005,6 +2009,10 @@
           <exclusion>
             <groupId>org.apache.orc</groupId>
             <artifactId>orc-core</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>${hive.group}</groupId>
+            <artifactId>hive-service-rpc</artifactId>
           </exclusion>
           <!-- jetty-all conflict with jetty 9.4.12.v20180830 -->
           <exclusion>
@@ -2147,6 +2155,10 @@
           </exclusion>
           <!-- Begin of Hive 2.3 exclusion -->
           <!-- Do not need Tez -->
+          <exclusion>
+            <groupId>${hive.group}</groupId>
+            <artifactId>hive-service-rpc</artifactId>
+          </exclusion>
           <exclusion>
             <groupId>${hive.group}</groupId>
             <artifactId>hive-llap-tez</artifactId>
@@ -2299,6 +2311,10 @@
           <exclusion>
             <groupId>co.cask.tephra</groupId>
             <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>${hive.group}</groupId>
+            <artifactId>hive-service-rpc</artifactId>
           </exclusion>
           <!-- End of Hive 2.3 exclusion -->
         </exclusions>
