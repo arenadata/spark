@@ -129,7 +129,7 @@
     <yarn.version>${hadoop.version}</yarn.version>
     <zookeeper.version>3.6.3</zookeeper.version>
     <curator.version>2.13.0</curator.version>
-    <hive.group>org.apache.hive</hive.group>
+    <hive.group>io.arenadata.hive</hive.group>
     <hive.classifier>core</hive.classifier>
     <!-- Version used in Maven Hive dependency -->
     <hive.version>2.3.9</hive.version>
@@ -2467,17 +2467,17 @@
       <!-- hive-llap-common is needed when registering UDFs in Hive 2.3.
          We add it here, otherwise -Phive-provided won't work. -->
       <dependency>
-        <groupId>org.apache.hive</groupId>
+        <groupId>io.arenadata.hive</groupId>
         <artifactId>hive-llap-common</artifactId>
         <version>${hive23.version}</version>
         <scope>${hive.deps.scope}</scope>
         <exclusions>
           <exclusion>
-            <groupId>org.apache.hive</groupId>
+            <groupId>io.arenadata.hive</groupId>
             <artifactId>hive-common</artifactId>
           </exclusion>
           <exclusion>
-            <groupId>org.apache.hive</groupId>
+            <groupId>io.arenadata.hive</groupId>
             <artifactId>hive-serde</artifactId>
           </exclusion>
           <exclusion>
@@ -2488,21 +2488,21 @@
       </dependency>
       <!-- hive-llap-client is needed when run MapReduce test in Hive 2.3. -->
       <dependency>
-        <groupId>org.apache.hive</groupId>
+        <groupId>io.arenadata.hive</groupId>
         <artifactId>hive-llap-client</artifactId>
         <version>${hive23.version}</version>
         <scope>test</scope>
         <exclusions>
           <exclusion>
-            <groupId>org.apache.hive</groupId>
+            <groupId>io.arenadata.hive</groupId>
             <artifactId>hive-common</artifactId>
           </exclusion>
           <exclusion>
-            <groupId>org.apache.hive</groupId>
+            <groupId>io.arenadata.hive</groupId>
             <artifactId>hive-serde</artifactId>
           </exclusion>
           <exclusion>
-            <groupId>org.apache.hive</groupId>
+            <groupId>io.arenadata.hive</groupId>
             <artifactId>hive-llap-common</artifactId>
           </exclusion>
           <exclusion>
