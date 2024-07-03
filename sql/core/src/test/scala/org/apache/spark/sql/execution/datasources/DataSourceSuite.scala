@@ -158,6 +158,35 @@ class DataSourceSuite extends SharedSparkSession with PrivateMethodTester {
     val expectMessage = "No FileSystem for scheme nonexistentFs"
     assert(message.filterNot(Set(':', '"').contains) == expectMessage)
   }
+
+  test("SPARK-39910: test Hadoop archive non glob paths") {
+    val absoluteHarPaths = buildFullHarPaths(allRelativeHarPaths)
+
+    val resultPaths = DataSource.checkAndGlobPathIfNecessary(
+      absoluteHarPaths.map(_.toString),
+      hadoopConf,
+      checkEmptyGlobPath = true,
+      checkFilesExist = true,
+      enableGlobbing = true
+    )
+
+    assert(resultPaths.toSet === absoluteHarPaths.toSet)
+  }
+
+  test("SPARK-39910: test Hadoop archive glob paths") {
+    val harGlobPaths = buildFullHarPaths(Seq(globRelativeHarPath))
+
+    val resultPaths = DataSource.checkAndGlobPathIfNecessary(
+      harGlobPaths.map(_.toString),
+      hadoopConf,
+      checkEmptyGlobPath = true,
+      checkFilesExist = true,
+      enableGlobbing = true
+    )
+
+    val expectedHarPaths = buildFullHarPaths(allRelativeHarPaths)
+    assert(resultPaths.toSet === expectedHarPaths.toSet)
+  }
 }
 
 object TestPaths {
@@ -199,10 +228,34 @@ object TestPaths {
       )
   )
 
+  val txtRelativeHarPath = new Path("/test.txt")
+  val csvRelativeHarPath = new Path("/test.csv")
+  val jsonRelativeHarPath = new Path("/test.json")
+  val parquetRelativeHarPath = new Path("/test.parquet")
+  val orcRelativeHarPath = new Path("/test.orc")
+  val globRelativeHarPath = new Path("/test.*")
+
+  val allRelativeHarPaths = Seq(
+    txtRelativeHarPath,
+    csvRelativeHarPath,
+    jsonRelativeHarPath,
+    parquetRelativeHarPath,
+    orcRelativeHarPath
+  )
+
   def createMockFileStatus(path: String): FileStatus = {
     val fileStatus = new FileStatus()
     fileStatus.setPath(new Path(path))
     fileStatus
+  }
+
+  def buildFullHarPaths(relativePaths: Seq[Path]): Seq[Path] = {
+    val archiveUrl = Thread.currentThread().getContextClassLoader
+      .getResource("test-data/test-archive.har")
+      .getPath
+
+    val archivePath = new Path("har", "file-:", archiveUrl)
+    relativePaths.map(Path.mergePaths(archivePath, _))
   }
 }
 

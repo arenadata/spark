@@ -136,6 +136,8 @@ over10k
 exported_table/*
 ansible-for-test-node/*
 node_modules
+.*\.har
+
 spark-events-broken/*
 SqlBaseLexer.tokens
 # Spark Connect related files with custom licence

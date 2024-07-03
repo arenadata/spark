@@ -1371,4 +1371,18 @@ class DataFrameReaderWriterSuite extends QueryTest with SharedSparkSession with 
 
     testRead(spark.read.schema(fileSchema).csv(s"$harPath/test.csv"), data, fileSchema)
   }
+  test("SPARK-39910: read files from Hadoop archives") {
+    val fileSchema = new StructType().add("str", StringType)
+    val harPath = testFile("test-data/test-archive.har")
+      .replaceFirst("file:/", "har:/")
+
+    testRead(spark.read.textFile(s"$harPath/test.txt").toDF(), data, textSchema)
+    testRead(spark.read.schema(fileSchema).csv(s"$harPath/test.csv"), data, fileSchema)
+    testRead(spark.read.schema(fileSchema).json(s"$harPath/test.json"), data, fileSchema)
+    testRead(spark.read.schema(fileSchema).parquet(s"$harPath/test.parquet"), data, fileSchema)
+
+    withSQLConf(SQLConf.ORC_IMPLEMENTATION.key -> "native") {
+      testRead(spark.read.schema(fileSchema).orc(s"$harPath/test.orc"), data, fileSchema)
+    }
+  }
 }
