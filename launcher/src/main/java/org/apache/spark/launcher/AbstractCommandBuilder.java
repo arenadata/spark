@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.apache.spark.launcher.CommandBuilderUtils.*;
 
@@ -266,8 +267,12 @@ abstract class AbstractCommandBuilder {
     if (effectiveConfig == null) {
       effectiveConfig = new HashMap<>(conf);
       Properties p = loadPropertiesFile();
-      p.stringPropertyNames().forEach(key ->
-        effectiveConfig.computeIfAbsent(key, p::getProperty));
+      Set<String> propertyBlackList =
+              Arrays.stream(p.getProperty(SPARK_SQL_CONF_BLACKLIST, "").split(","))
+                      .collect(Collectors.toSet());
+      p.stringPropertyNames().stream()
+              .filter(key -> !propertyBlackList.contains(key))
+              .forEach(key -> effectiveConfig.computeIfAbsent(key, p::getProperty));
     }
     return effectiveConfig;
   }
