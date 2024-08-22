@@ -22,16 +22,13 @@ import java.net.{URI, URL, URLClassLoader}
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.ws.rs.core.UriBuilder
-
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
-
-import org.apache.commons.io.{FilenameUtils, FileUtils}
+import org.apache.commons.io.{FileUtils, FilenameUtils}
 import org.apache.hadoop.fs.{LocalFileSystem, Path => FSPath}
-
 import org.apache.spark.{JobArtifactSet, JobArtifactState, SparkContext, SparkEnv}
 import org.apache.spark.internal.Logging
-import org.apache.spark.internal.config.{CONNECT_SCALA_UDF_STUB_PREFIXES, EXECUTOR_USER_CLASS_PATH_FIRST}
+import org.apache.spark.internal.config.{CONNECT_SCALA_UDF_STUB_PREFIXES, EXECUTOR_USER_CLASS_PATH_FIRST, SPARK_ARTIFACTORY_DIR_PATH}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.connect.artifact.util.ArtifactUtils
 import org.apache.spark.sql.connect.config.Connect.CONNECT_COPY_FROM_LOCAL_TO_FS_ALLOW_DEST_LOCAL
@@ -263,11 +260,9 @@ object SparkConnectArtifactManager extends Logging {
   private var currentArtifactRootUri: String = _
   private var lastKnownSparkContextInstance: SparkContext = _
 
-  private val ARTIFACT_DIRECTORY_PREFIX = "artifacts"
-
   // The base directory where all artifacts are stored.
   private[spark] lazy val artifactRootPath = {
-    Utils.createTempDir(ARTIFACT_DIRECTORY_PREFIX).toPath
+    Utils.createTempDir(SparkEnv.get.conf.get(SPARK_ARTIFACTORY_DIR_PATH)).toPath
   }
 
   private[spark] def getArtifactDirectoryAndUriForSession(session: SparkSession): (Path, String) =
@@ -305,7 +300,7 @@ object SparkConnectArtifactManager extends Logging {
     }
     val oldArtifactUri = currentArtifactRootUri
     currentArtifactRootUri = SparkEnv.get.rpcEnv.fileServer
-      .addDirectoryIfAbsent(ARTIFACT_DIRECTORY_PREFIX, artifactRootPath.toFile)
+      .addDirectoryIfAbsent(SparkEnv.get.conf.get(SPARK_ARTIFACTORY_DIR_PATH), artifactRootPath.toFile)
     lastKnownSparkContextInstance = sc
     logDebug(s"Artifact URI updated from $oldArtifactUri to $currentArtifactRootUri")
   }

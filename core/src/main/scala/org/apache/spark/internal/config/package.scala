@@ -2562,4 +2562,11 @@ package object config {
       .stringConf
       .toSequence
       .createOptional
+
+  private[spark] val SPARK_ARTIFACTORY_DIR_PATH =
+    ConfigBuilder("spark.artifactory.dir.path")
+      .internal()
+      .version("3.5.2")
+      .stringConf
+      .createWithDefault("artifacts")
 }
