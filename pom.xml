@@ -132,8 +132,8 @@
     <hive.group>io.arenadata.hive</hive.group>
     <hive.classifier>core</hive.classifier>
     <!-- Version used in Maven Hive dependency -->
-    <hive.version>2.3.9_arenadata1</hive.version>
-    <hive23.version>2.3.9_arenadata1</hive23.version>
+    <hive.version>2.3.9_arenadata2</hive.version>
+    <hive23.version>2.3.9_arenadata2</hive23.version>
     <!-- Version used for internal directory structure -->
     <hive.version.short>2.3</hive.version.short>
     <!-- note that this should be compatible with Kafka brokers version 0.10 and up -->
