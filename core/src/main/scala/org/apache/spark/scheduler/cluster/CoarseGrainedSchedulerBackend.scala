@@ -18,7 +18,7 @@
 package org.apache.spark.scheduler.cluster
 
 import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
 import javax.annotation.concurrent.GuardedBy
 
 import scala.collection.mutable.{HashMap, HashSet, Queue}
@@ -27,7 +27,7 @@ import scala.concurrent.Future
 import com.google.common.cache.CacheBuilder
 import org.apache.hadoop.security.UserGroupInformation
 
-import org.apache.spark.{ExecutorAllocationClient, SparkEnv, TaskState}
+import org.apache.spark.{ExecutorAllocationClient, SparkEnv, SparkException, TaskState}
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.deploy.security.HadoopDelegationTokenManager
 import org.apache.spark.errors.SparkCoreErrors
@@ -132,6 +132,8 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   private val reviveThread =
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("driver-revive-thread")
 
+  private val stopping = new AtomicBoolean(false)
+
   private val cleanupService: Option[ScheduledExecutorService] =
     conf.get(EXECUTOR_DECOMMISSION_FORCE_KILL_TIMEOUT).map { _ =>
       ThreadUtils.newDaemonSingleThreadScheduledExecutor("cleanup-decommission-execs")
@@ -226,10 +228,17 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
         removeWorker(workerId, host, message)
 
       case LaunchedExecutor(executorId) =>
-        executorDataMap.get(executorId).foreach { data =>
-          data.freeCores = data.totalCores
+        if (!stopping.get) {
+          executorDataMap.get(executorId).foreach { data =>
+            data.freeCores = data.totalCores
+          }
+          makeOffers(executorId)
+        } else {
+          // Driver has been commanded a shutdown, stop the executor that just launched
+          executorDataMap.get(executorId).foreach { data =>
+            data.executorEndpoint.send(StopExecutor)
+          }
         }
-        makeOffers(executorId)
 
       case MiscellaneousProcessAdded(time: Long,
           processId: String, info: MiscellaneousProcessDetails) =>
@@ -243,7 +252,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
 
       case RegisterExecutor(executorId, executorRef, hostname, cores, logUrls,
           attributes, resources, resourceProfileId) =>
-        if (executorDataMap.contains(executorId)) {
+        if (stopping.get) {
+          context.sendFailure(new SparkException("Driver has been commanded a shutdown"))
+        } else if (executorDataMap.contains(executorId)) {
           context.sendFailure(new IllegalStateException(s"Duplicate executor ID: $executorId"))
         } else if (scheduler.excludedNodes.contains(hostname) ||
             isExecutorExcluded(executorId, hostname)) {
@@ -639,6 +650,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   }
 
   override def stop(): Unit = {
+    stopping.set(true)
     reviveThread.shutdownNow()
     cleanupService.foreach(_.shutdownNow())
     stopExecutors()
