@@ -44,7 +44,6 @@ import org.apache.hadoop.hive.serde.serdeConstants
 import org.apache.hadoop.hive.serde2.MetadataTypedColumnsetSerDe
 import org.apache.hadoop.hive.serde2.`lazy`.LazySimpleSerDe
 import org.apache.hadoop.security.UserGroupInformation
-
 import org.apache.spark.{SparkConf, SparkException, SparkThrowable}
 import org.apache.spark.deploy.SparkHadoopUtil.SOURCE_SPARK
 import org.apache.spark.internal.Logging
@@ -177,8 +176,15 @@ private[hive] class HiveClientImpl(
     // got changed. We reset it to clientLoader.ClassLoader here.
     state.getConf.setClassLoader(clientLoader.classLoader)
     shim.setCurrentSessionState(state)
-    state.out = new PrintStream(outputBuffer, true, UTF_8.name())
-    state.err = new PrintStream(outputBuffer, true, UTF_8.name())
+    val outField = state.getClass.getField("out")
+    val printStreamClass = outField.getType.asInstanceOf[Class[_ <: PrintStream]]
+    val ctor = printStreamClass
+      .getConstructor(classOf[OutputStream], java.lang.Boolean.TYPE, classOf[String])
+    val newOutStream = ctor.newInstance(outputBuffer, java.lang.Boolean.TRUE, UTF_8.name())
+    outField.set(state, newOutStream)
+    val errField = state.getClass.getField("err")
+    val newErrStream = ctor.newInstance(outputBuffer, java.lang.Boolean.TRUE, UTF_8.name())
+    errField.set(state, newErrStream)
     state
   }
 
