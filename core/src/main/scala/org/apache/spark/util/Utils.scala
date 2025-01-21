@@ -122,6 +122,29 @@ private[spark] object Utils
   private val copyBuffer = ThreadLocal.withInitial[Array[Byte]](() => {
     new Array[Byte](COPY_BUFFER_LEN)
   })
+
+  /**
+   * Filters out blacklisted properties from the given configuration options.
+   *
+   * @param defaultOptions The default configuration options containing the blacklist key.
+   * @param options The original configuration options to be filtered.
+   * @return A filtered map excluding blacklisted properties.
+   */
+  def filterBlacklistedProperties(defaultOptions: Map[String, String],
+                                  options: Map[String, String]): Map[String, String] = {
+    // Extract blacklisted properties, defaulting to an empty string if not present
+    val blackListedProperties = defaultOptions
+      .getOrElse(SPARK_SQL_CONF_BLACKLIST.key, "")
+      .split(",")
+      .toSet
+
+    // Ensure the blacklist contains the SPARK_SQL_CONF_BLACKLIST.key itself
+    val completeBlacklist = blackListedProperties + SPARK_SQL_CONF_BLACKLIST.key
+
+    // Filter options to exclude blacklisted properties
+    options.filterNot { case (k, _) => completeBlacklist.contains(k) }
+  }
+
   /** Deserialize a Long value (used for [[org.apache.spark.api.python.PythonPartitioner]]) */
   def deserializeLongValue(bytes: Array[Byte]) : Long = {
     // Note: we assume that we are given a Long value encoded in network (big-endian) byte order

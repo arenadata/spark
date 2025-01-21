@@ -129,8 +129,12 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
     // Use common defaults file, if not specified by user
     propertiesFile = Option(propertiesFile).getOrElse(Utils.getDefaultPropertiesFile(env))
     // Honor --conf before the defaults file
+    // Filter sparkProperties to exclude blacklisted properties using default options
+    val filteredProp = Utils.filterBlacklistedProperties(defaultSparkProperties, sparkProperties)
+
+    // Merge filtered default properties into sparkProperties
     defaultSparkProperties.foreach { case (k, v) =>
-      if (!sparkProperties.contains(k)) {
+      if (!filteredProp.contains(k)) {
         sparkProperties(k) = v
       }
     }
