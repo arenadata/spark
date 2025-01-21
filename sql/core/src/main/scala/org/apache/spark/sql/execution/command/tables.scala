@@ -460,8 +460,13 @@ case class TruncateTableCommand(
     val catalog = spark.sessionState.catalog
     val table = catalog.getTableMetadata(tableName)
     val tableIdentWithDB = table.identifier.quotedString
+    val purgeOption: Option[String] = table.properties.get("external.table.purge")
+    val purge: Boolean = purgeOption match {
+      case Some(value) => value.toBoolean
+      case None => false
+    }
 
-    if (table.tableType == CatalogTableType.EXTERNAL) {
+    if (table.tableType == CatalogTableType.EXTERNAL && !purge) {
       throw QueryCompilationErrors.truncateTableOnExternalTablesError(tableIdentWithDB)
     }
     if (table.partitionColumnNames.isEmpty && partitionSpec.isDefined) {

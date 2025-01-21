@@ -4448,7 +4448,7 @@
   },
   "_LEGACY_ERROR_TEMP_1266" : {
     "message" : [
-      "Operation not allowed: TRUNCATE TABLE on external tables: <tableIdentWithDB>."
+      "Operation not allowed: TRUNCATE TABLE on external tables without 'external.table.purge' set to true: <tableIdentWithDB>."
     ]
   },
   "_LEGACY_ERROR_TEMP_1267" : {
