@@ -19,9 +19,9 @@ package org.apache.spark.sql.hive.client
 
 private[client] trait HiveClientVersions {
   private val testVersions = sys.env.get("SPARK_TEST_HIVE_CLIENT_VERSIONS")
-  protected val versions = if (testVersions.nonEmpty) {
+  protected val versions: Seq[String] = if (testVersions.nonEmpty) {
     testVersions.get.split(",").map(_.trim).filter(_.nonEmpty).toIndexedSeq
   } else {
-    IndexedSeq("2.0", "2.1", "2.2", "2.3", "3.0", "3.1", "4.0")
+    Seq("2.0", "2.1", "2.2", "2.3", "3.0", "3.1", "4.0")
   }
 }
