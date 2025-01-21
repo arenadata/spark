@@ -266,16 +266,9 @@ private[client] class Shim_v2_0 extends Shim with Logging {
   // txnId can be 0 unless isAcid == true
   protected lazy val txnIdInLoadDynamicPartitions: JLong = 0L
 
-  protected lazy val getMSCMethod = {
-    // Since getMSC() in Hive 0.12 is private, findMethod() could not work here
-    val msc = classOf[Hive].getDeclaredMethod("getMSC")
-    msc.setAccessible(true)
-    msc
-  }
+  protected lazy val wildcard: String = ".*"
 
-  override def getMSC(hive: Hive): IMetaStoreClient = {
-    getMSCMethod.invoke(hive).asInstanceOf[IMetaStoreClient]
-  }
+  override def getMSC(hive: Hive): IMetaStoreClient = hive.getMSC
 
   private lazy val setCurrentSessionStateMethod =
     findStaticMethod(
