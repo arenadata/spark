@@ -548,7 +548,7 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
     // method. Here we only update the path option if the path option already exists in storage
     // properties, to avoid adding a unnecessary path option for Hive serde tables.
     val hasPathOption = CaseInsensitiveMap(rawTable.storage.properties).contains("path")
-    val storageWithNewPath = if (rawTable.tableType == MANAGED && hasPathOption) {
+    val storageWithNewPath = if (HiveUtils.isPurgeableExternalTable(rawTable) && hasPathOption) {
       // If it's a managed table with path option and we are renaming it, then the path option
       // becomes inaccurate and we need to update it according to the new table name.
       val newTablePath = defaultTablePath(TableIdentifier(newName, Some(db)))
@@ -1069,7 +1069,7 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
     // scalastyle:off caselocale
     val hasUpperCasePartitionColumn = partitionColumnNames.exists(col => col.toLowerCase != col)
     // scalastyle:on caselocale
-    if (tableMeta.tableType == MANAGED && hasUpperCasePartitionColumn) {
+    if (HiveUtils.isPurgeableExternalTable(tableMeta) && hasUpperCasePartitionColumn) {
       val tablePath = new Path(tableMeta.location)
       val fs = tablePath.getFileSystem(hadoopConf)
       val newParts = newSpecs.map { spec =>
