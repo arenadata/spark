@@ -575,4 +575,12 @@ private[spark] object HiveUtils extends Logging {
       case PATTERN_FOR_KEY_EQ_VAL(_, v) => FileUtils.unescapePathName(v)
     }
   }
+
+  def isPurgeableExternalTable(table: CatalogTable): Boolean = {
+    table.properties.get("external.table.purge") match {
+      case Some(value) => value.toBoolean
+      case None => false
+    }
+  }
+
 }
