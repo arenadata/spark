@@ -214,6 +214,14 @@ object LogicalRDD extends Logging {
     }
   }
 
+
+  private def isCheckpointPlan(plan: LogicalPlan): Boolean = plan match {
+    case lr: LogicalRDD =>
+      lr.rdd.isCheckpointed
+    case _ =>
+      false
+  }
+
   private[sql] def rewriteStatsAndConstraints(
       logicalPlan: LogicalPlan,
       optimizedPlan: LogicalPlan): (Option[Statistics], Option[ExpressionSet]) = {
@@ -221,9 +229,17 @@ object LogicalRDD extends Logging {
 
     rewrite.map { rw =>
       val rewrittenStatistics = rewriteStatistics(optimizedPlan.stats, rw)
-      val rewrittenConstraints = rewriteConstraints(optimizedPlan.constraints, rw)
+      val rewrittenConstraints = if (isCheckpointPlan(optimizedPlan)) {
+        val notNullOnly = optimizedPlan.constraints.filter {
+          case IsNotNull(_) => true
+          case _ => false
+        }
+        Some(ExpressionSet(notNullOnly))
+      } else {
+        Some(rewriteConstraints(optimizedPlan.constraints, rw))
+      }
 
-      (Some(rewrittenStatistics), Some(rewrittenConstraints))
+      (Some(rewrittenStatistics), rewrittenConstraints)
     }.getOrElse {
       // can't rewrite stats and constraints, give up
       logWarning("The output columns are expected to the same (for name and type) for output " +
