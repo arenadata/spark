@@ -249,7 +249,7 @@ object LogicalRDD extends Logging {
     rewrite.map { rw =>
       val rewrittenStatistics =
         if (isCheckpointPlan(optimizedPlan)) None
-        else Some(rewriteStatistics(optimizedPlan.stats, rw))
+        else rewriteStatistics(optimizedPlan.stats, rw)
 
       val rewrittenConstraints = rewriteConstraints(optimizedPlan.constraints, rw)
 
