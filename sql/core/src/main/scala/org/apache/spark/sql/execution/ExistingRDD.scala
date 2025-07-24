@@ -145,12 +145,16 @@ case class LogicalRDD(
   override protected def stringArgs: Iterator[Any] = Iterator(output, isStreaming)
 
   override def computeStats(): Statistics = {
-    originStats.getOrElse {
+    if (rdd.isCheckpointed) {
       Statistics(
-        // TODO: Instead of returning a default value here, find a way to return a meaningful size
-        // estimate for RDDs. See PR 1238 for more discussions.
         sizeInBytes = BigInt(session.sessionState.conf.defaultSizeInBytes)
       )
+    } else {
+      originStats.getOrElse {
+        Statistics(
+          sizeInBytes = BigInt(session.sessionState.conf.defaultSizeInBytes)
+        )
+      }
     }
   }
 
