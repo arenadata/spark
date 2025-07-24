@@ -140,23 +140,40 @@ case class LogicalRDD(
   override protected def stringArgs: Iterator[Any] = Iterator(output, isStreaming)
 
   override def computeStats(): Statistics = {
-    originStats.getOrElse {
+    if (rdd.isCheckpointed) {
       Statistics(
-        // TODO: Instead of returning a default value here, find a way to return a meaningful size
-        // estimate for RDDs. See PR 1238 for more discussions.
         sizeInBytes = BigInt(session.sessionState.conf.defaultSizeInBytes)
       )
+    } else {
+      originStats.getOrElse {
+        Statistics(
+          sizeInBytes = BigInt(session.sessionState.conf.defaultSizeInBytes)
+        )
+      }
     }
   }
 
-  override lazy val constraints: ExpressionSet = originConstraints.getOrElse(ExpressionSet())
-    // Subqueries can have non-deterministic results even when they only contain deterministic
-    // expressions (e.g. consider a LIMIT 1 subquery without an ORDER BY). Propagating predicates
-    // containing a subquery causes the subquery to be executed twice (as the result of the subquery
-    // in the checkpoint computation cannot be reused), which could result in incorrect results.
-    // Therefore we assume that all subqueries are non-deterministic, and we do not expose any
-    // constraints that contain a subquery.
-    .filterNot(SubqueryExpression.hasSubquery)
+  override lazy val constraints: ExpressionSet = {
+    val base = originConstraints.getOrElse(ExpressionSet())
+      // Subqueries can have non-deterministic results even when they only contain deterministic
+      // expressions (e.g. consider a LIMIT 1 subquery without an ORDER BY). Propagating predicates
+      // containing a subquery causes the subquery to be executed twice
+      // (as the result of the subquery
+      // in the checkpoint computation cannot be reused), which could result in incorrect results.
+      // Therefore we assume that all subqueries are non-deterministic, and we do not expose any
+      // constraints that contain a subquery.
+      .filterNot(SubqueryExpression.hasSubquery)
+
+    if (rdd.isCheckpointed) {
+      ExpressionSet(
+        base.toSeq.collect {
+          case c@IsNotNull(_) => c
+        }
+      )
+    } else {
+      base
+    }
+  }
 }
 
 object LogicalRDD extends Logging {
