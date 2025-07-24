@@ -232,13 +232,21 @@ object LogicalRDD extends Logging {
     }
   }
 
+  private def isCheckpointPlan(plan: LogicalPlan): Boolean = plan match {
+    case lr: LogicalRDD => lr.rdd.isCheckpointed
+    case _ => false
+  }
+
   private[sql] def rewriteStatsAndConstraints(
       logicalPlan: LogicalPlan,
       optimizedPlan: LogicalPlan): (Option[Statistics], Option[ExpressionSet]) = {
     val rewrite = buildOutputAssocForRewrite(optimizedPlan.output, logicalPlan.output)
 
     rewrite.map { rw =>
-      val rewrittenStatistics = rewriteStatistics(optimizedPlan.stats, rw)
+      val rewrittenStatistics =
+        if (isCheckpointPlan(optimizedPlan)) None
+        else Some(rewriteStatistics(optimizedPlan.stats, rw))
+
       val rewrittenConstraints = rewriteConstraints(optimizedPlan.constraints, rw)
 
       (Some(rewrittenStatistics), Some(rewrittenConstraints))
