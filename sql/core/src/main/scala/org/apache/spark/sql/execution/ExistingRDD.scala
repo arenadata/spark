@@ -249,11 +249,11 @@ object LogicalRDD extends Logging {
     rewrite.map { rw =>
       val rewrittenStatistics =
         if (isCheckpointPlan(optimizedPlan)) None
-        else rewriteStatistics(optimizedPlan.stats, rw)
+        else Some(rewriteStatistics(optimizedPlan.stats, rw))
 
       val rewrittenConstraints = rewriteConstraints(optimizedPlan.constraints, rw)
 
-      (Some(rewrittenStatistics), Some(rewrittenConstraints))
+      (rewrittenStatistics, Some(rewrittenConstraints))
     }.getOrElse {
       // can't rewrite stats and constraints, give up
       logWarning("The output columns are expected to the same (for name and type) for output " +
