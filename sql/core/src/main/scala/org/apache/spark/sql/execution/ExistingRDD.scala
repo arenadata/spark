@@ -125,7 +125,12 @@ case class LogicalRDD(
       case e: Attribute => rewrite.getOrElse(e, e)
     }.asInstanceOf[SortOrder])
 
-    val rewrittenStatistics = originStats.map(rewriteStatistics(_, rewrite))
+    val rewrittenStatistics =
+      if (rdd.isCheckpointed) {
+        None
+      } else {
+        originStats.map(rewriteStatistics(_, rewrite))
+      }
     val rewrittenConstraints = originConstraints.map(rewriteConstraints(_, rewrite))
 
     LogicalRDD(
