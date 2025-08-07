@@ -255,7 +255,7 @@ private[client] class Shim_v2_0 extends Shim with Logging {
   // txnId can be 0 unless isAcid == true
   protected lazy val txnIdInLoadDynamicPartitions: JLong = 0L
 
-  protected lazy val wildcard: String = ".*"
+  protected lazy val wildcard: String = "%"
 
   override def getMSC(hive: Hive): IMetaStoreClient = hive.getMSC
 
