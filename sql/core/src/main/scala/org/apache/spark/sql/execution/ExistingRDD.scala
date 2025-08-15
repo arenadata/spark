@@ -165,11 +165,7 @@ case class LogicalRDD(
       .filterNot(SubqueryExpression.hasSubquery)
 
     if (rdd.isCheckpointed) {
-      ExpressionSet(
-        base.toSeq.collect {
-          case c@IsNotNull(_) => c
-        }
-      )
+      ExpressionSet()
     } else {
       base
     }
