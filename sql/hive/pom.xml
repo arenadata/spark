@@ -119,6 +119,11 @@
       <artifactId>hive-llap-client</artifactId>
       <scope>${hive.llap.scope}</scope>
     </dependency>
+    <dependency>
+      <groupId>io.arenadata.hive</groupId>
+      <artifactId>hive-hbase-handler</artifactId>
+      <scope>compile</scope>
+    </dependency>
     <!-- hive-serde already depends on avro, but this brings in customized config of avro deps from parent -->
     <dependency>
       <groupId>org.apache.avro</groupId>
