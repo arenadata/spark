@@ -28,8 +28,8 @@ ARG APT_INSTALL="apt-get install --no-install-recommends -y"
 
 RUN apt-get clean
 RUN apt-get update
-RUN $APT_INSTALL software-properties-common git libxml2-dev pkg-config curl wget openjdk-8-jdk libpython3-dev python3-pip python3-setuptools python3.8 python3.9
-RUN update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java
+RUN $APT_INSTALL software-properties-common git libxml2-dev pkg-config curl wget openjdk-17-jdk libpython3-dev python3-pip python3-setuptools python3.8 python3.9
+RUN update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java
 
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
 
@@ -62,8 +62,7 @@ RUN Rscript -e "install.packages('ragg', repos='https://cloud.r-project.org/')"
 RUN Rscript -e "install.packages(c('remotes', 'devtools'), repos='https://cloud.r-project.org/')"
 RUN Rscript -e "devtools::install_version('roxygen2', version='7.2.0', repos='https://cloud.r-project.org')"
 
-RUN pypy3 -m pip install numpy 'pandas<=2.0.3' coverage matplotlib && \
-    pypy3 -m pip install --only-binary scipy scipy
+RUN pypy3 -m pip install 'numpy==1.24.4' 'pandas==2.0.3' 'scipy==1.10.1' 'coverage==7.4.4' 'matplotlib==3.7.5' 'gast==0.5.4'
 RUN python3.9 -m pip install 'numpy==1.25.1' 'pyarrow==12.0.1' 'pandas<=2.0.3' scipy unittest-xml-reporting plotly>=4.8 'mlflow>=2.3.1' coverage 'matplotlib==3.7.2' openpyxl 'memory-profiler==0.60.0' 'scikit-learn==1.1.*'
 
 # Add Python deps for Spark Connect.
