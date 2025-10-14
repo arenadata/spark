@@ -536,4 +536,12 @@ private[spark] object HiveUtils extends Logging {
     }
     false
   }
+
+  def isPurgeableExternalTable(table: CatalogTable): Boolean = {
+    table.properties.get("external.table.purge") match {
+      case Some(value) => value.toBoolean
+      case None => false
+    }
+  }
+
 }
