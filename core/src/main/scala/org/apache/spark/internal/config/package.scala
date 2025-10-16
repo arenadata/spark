@@ -2905,6 +2905,13 @@ package object config {
       .toSequence
       .createOptional
 
+  private[spark] val SPARK_ARTIFACTORY_DIR_PATH =
+    ConfigBuilder("spark.artifactory.dir.path")
+      .internal()
+      .version("3.5.2")
+      .stringConf
+      .createWithDefault("artifacts")
+
   private[spark] val LEGACY_ABORT_STAGE_AFTER_KILL_TASKS =
     ConfigBuilder("spark.scheduler.stage.legacyAbortAfterKillTasks")
       .doc("Whether to abort a stage after TaskScheduler.killAllTaskAttempts(). This is " +
