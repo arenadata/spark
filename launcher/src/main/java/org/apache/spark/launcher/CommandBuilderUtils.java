@@ -38,6 +38,7 @@ class CommandBuilderUtils {
   static final String SECRET_REDACTION_PATTERN = "(?i)secret|password|token|access[.]?key";
   static final Pattern redactPattern = Pattern.compile(SECRET_REDACTION_PATTERN);
   static final Pattern keyValuePattern = Pattern.compile("-D(.+?)=(.+)");
+  static final String SPARK_SQL_CONF_BLACKLIST = "spark.sql.security.confblacklist";
 
   /** Returns whether the given string is null or empty. */
   static boolean isEmpty(String s) {

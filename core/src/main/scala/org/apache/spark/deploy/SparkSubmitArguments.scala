@@ -107,24 +107,24 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
    * Load properties from the file with the given path into `sparkProperties`.
    * No-op if the file path is null
    */
-  private def loadPropertiesFromFile(filePath: String): Unit = {
+  private def loadPropertiesFromFile(filePath: String): collection.Map[String, String] = {
     if (filePath != null) {
       if (verbose) {
         logInfo(log"Using properties file: ${MDC(PATH, filePath)}")
       }
       val properties = Utils.getPropertiesFromFile(filePath)
-      properties.foreach { case (k, v) =>
-        if (!sparkProperties.contains(k)) {
-          sparkProperties(k) = v
-        }
-      }
+
       // Property files may contain sensitive information, so redact before printing
       if (verbose) {
         Utils.redact(properties).foreach { case (k, v) =>
           logInfo(log"Adding default property: ${MDC(KEY, k)}=${MDC(VALUE, v)}")
         }
       }
+
+      return properties
     }
+
+    Map.empty
   }
 
   /**
@@ -133,14 +133,45 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
    */
   private def mergeDefaultSparkProperties(): Unit = {
     // Honor --conf before the specified properties file and defaults file
-    loadPropertiesFromFile(propertiesFile)
+    val properties = loadPropertiesFromFile(propertiesFile)
+
+    mergeProperties(properties)
+
+    val defaultProperties = loadPropertiesFromFile(Utils.getDefaultPropertiesFile(env))
+
+    // Filter sparkProperties to exclude blacklisted properties using default options
+    removeSparkBlacklistedProperties(defaultProperties)
 
     // Also load properties from `spark-defaults.conf` if they do not exist in the properties file
     // and --conf list when:
     //   - no input properties file is specified
     //   - input properties file is specified, but `--load-spark-defaults` flag is set
     if (propertiesFile == null || loadSparkDefaults) {
-      loadPropertiesFromFile(Utils.getDefaultPropertiesFile(env))
+      mergeProperties(defaultProperties)
+    }
+  }
+
+  /**
+   * Merge properties
+   */
+  private def mergeProperties(properties: collection.Map[String, String]): Unit = {
+    properties.foreach { case (k, v) =>
+      if (!sparkProperties.contains(k)) {
+        sparkProperties(k) = v
+      }
+    }
+  }
+
+  /**
+   * Remove properties that are in black list
+   */
+  private def removeSparkBlacklistedProperties(
+      defaultProperties: collection.Map[String, String]): Unit = {
+    val filteredProp = Utils.filterBlacklistedProperties(defaultProperties, sparkProperties)
+    sparkProperties.keys.foreach { k =>
+      if (!filteredProp.contains(k)) {
+        sparkProperties -= k
+      }
     }
   }
 

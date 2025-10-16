@@ -802,7 +802,14 @@ object SparkSession extends SparkSessionCompanion with Logging {
 
     private def build(forceCreate: Boolean): SparkSession = synchronized {
       val sparkConf = new SparkConf()
-      options.foreach { case (k, v) => sparkConf.set(k, v) }
+
+      // Filter options to exclude blacklisted properties
+      val filteredOptions = Utils.filterBlacklistedProperties(sparkConf.getAll.toMap, options)
+
+      // Set filtered configuration options in sparkConf
+      filteredOptions.foreach { case (k, v) =>
+        sparkConf.set(k, v)
+      }
 
       if (!sparkConf.get(EXECUTOR_ALLOW_SPARK_CONTEXT)) {
         assertOnDriver()
