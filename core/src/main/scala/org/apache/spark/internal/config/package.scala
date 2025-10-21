@@ -2792,6 +2792,21 @@ package object config {
       .toSequence
       .createWithDefault("org.apache.spark.sql.connect.client" :: Nil)
 
+  private[spark] val SPARK_SQL_CONF_BLACKLIST =
+    ConfigBuilder("spark.sql.security.confblacklist")
+      .internal()
+      .version("3.5.1")
+      .stringConf
+      .toSequence
+      .createOptional
+
+  private[spark] val SPARK_ARTIFACTORY_DIR_PATH =
+    ConfigBuilder("spark.artifactory.dir.path")
+      .internal()
+      .version("3.5.2")
+      .stringConf
+      .createWithDefault("artifacts")
+
   private[spark] val LEGACY_ABORT_STAGE_AFTER_KILL_TASKS =
     ConfigBuilder("spark.scheduler.stage.legacyAbortAfterKillTasks")
       .doc("Whether to abort a stage after TaskScheduler.killAllTaskAttempts(). This is " +

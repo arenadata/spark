@@ -40,6 +40,7 @@ import org.apache.spark.sql.catalyst.util.ResolveDefaultColumns.CURRENT_DEFAULT_
 import org.apache.spark.sql.classic.ClassicConversions.castToImpl
 import org.apache.spark.sql.connector.catalog.CatalogV2Implicits.TableIdentifierHelper
 import org.apache.spark.sql.errors.{QueryCompilationErrors, QueryExecutionErrors}
+import org.apache.spark.sql.execution.command.CommandUtils.isPurgeableExternalTable
 import org.apache.spark.sql.execution.datasources.DataSource
 import org.apache.spark.sql.execution.datasources.csv.CSVFileFormat
 import org.apache.spark.sql.execution.datasources.json.JsonFileFormat
@@ -466,7 +467,7 @@ case class TruncateTableCommand(
     val table = catalog.getTableMetadata(tableName)
     val tableIdentWithDB = table.identifier.quotedString
 
-    if (table.tableType == CatalogTableType.EXTERNAL) {
+    if (table.tableType == CatalogTableType.EXTERNAL && !isPurgeableExternalTable(table)) {
       throw QueryCompilationErrors.truncateTableOnExternalTablesError(tableIdentWithDB)
     }
     if (table.partitionColumnNames.isEmpty && partitionSpec.isDefined) {

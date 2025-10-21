@@ -47,6 +47,7 @@ import org.apache.spark.sql.connector.catalog.SupportsNamespaces._
 import org.apache.spark.sql.errors.QueryCompilationErrors
 import org.apache.spark.sql.errors.QueryExecutionErrors.hiveTableWithAnsiIntervalsError
 import org.apache.spark.sql.execution.datasources.{DataSource, DataSourceUtils, FileFormat, HadoopFsRelation, LogicalRelationWithTable}
+import org.apache.spark.sql.execution.command.CommandUtils.isPurgeableExternalTable
 import org.apache.spark.sql.execution.datasources.v2.FileDataSourceV2
 import org.apache.spark.sql.internal.{HiveSerDe, SQLConf}
 import org.apache.spark.sql.types._
@@ -227,9 +228,10 @@ case class DropTableCommand(
     val catalog = sparkSession.sessionState.catalog
 
     if (catalog.tableExists(tableName)) {
+      val table = catalog.getTableMetadata(tableName)
       // If the command DROP VIEW is to drop a table or DROP TABLE is to drop a view
       // issue an exception.
-      catalog.getTableMetadata(tableName).tableType match {
+      table.tableType match {
         case CatalogTableType.VIEW if !isView =>
           throw QueryCompilationErrors.wrongCommandForObjectTypeError(
             operation = "DROP TABLE",
@@ -255,8 +257,10 @@ case class DropTableCommand(
       } catch {
         case NonFatal(e) => log.warn(e.toString, e)
       }
+
       catalog.refreshTable(tableName)
-      catalog.dropTable(tableName, ifExists, purge)
+      val effectivePurge = purge || isPurgeableExternalTable(table)
+      catalog.dropTable(tableName, ifExists, effectivePurge)
     } else if (ifExists) {
       // no-op
     } else {
@@ -648,8 +652,9 @@ case class AlterTableDropPartitionCommand(
         sparkSession.sessionState.conf.resolver)
     }
 
+    val effectivePurge = purge || isPurgeableExternalTable(table)
     catalog.dropPartitions(
-      table.identifier, normalizedSpecs, ignoreIfNotExists = ifExists, purge = purge,
+      table.identifier, normalizedSpecs, ignoreIfNotExists = ifExists, purge = effectivePurge,
       retainData = retainData)
 
     sparkSession.catalog.refreshTable(table.identifier.quotedString)

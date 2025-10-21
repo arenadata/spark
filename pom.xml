@@ -123,16 +123,16 @@
     <slf4j.version>2.0.16</slf4j.version>
     <log4j.version>2.24.3</log4j.version>
     <!-- make sure to update IsolatedClientLoader whenever this version is changed -->
-    <hadoop.version>3.4.1</hadoop.version>
+    <hadoop.version>3.3.6</hadoop.version>
     <!-- SPARK-41247: When updating `protobuf.version`, also need to update `protoVersion` in `SparkBuild.scala` -->
     <protobuf.version>4.29.3</protobuf.version>
     <protoc-jar-maven-plugin.version>3.11.4</protoc-jar-maven-plugin.version>
-    <zookeeper.version>3.9.3</zookeeper.version>
+    <zookeeper.version>3.8.4</zookeeper.version>
     <curator.version>5.7.1</curator.version>
-    <hive.group>org.apache.hive</hive.group>
+    <hive.group>io.arenadata.hive</hive.group>
     <hive.classifier>core</hive.classifier>
     <!-- Version used in Maven Hive dependency -->
-    <hive.version>2.3.10</hive.version>
+    <hive.version>2.3.10_arenadata1</hive.version>
     <!-- note that this should be compatible with Kafka brokers version 0.10 and up -->
     <kafka.version>3.9.1</kafka.version>
     <!-- After 10.17.1.0, the minimum required version is JDK19 -->
@@ -297,7 +297,7 @@
     <!-- Version used in Connect -->
     <connect.guava.version>33.4.0-jre</connect.guava.version>
     <guava.failureaccess.version>1.0.2</guava.failureaccess.version>
-    <io.grpc.version>1.67.1</io.grpc.version>
+    <io.grpc.version>1.76.0</io.grpc.version>
     <mima.version>1.1.4</mima.version>
     <tomcat.annotations.api.version>6.0.53</tomcat.annotations.api.version>
 
@@ -1713,6 +1713,10 @@
             <artifactId>hive-service</artifactId>
           </exclusion>
           <exclusion>
+              <groupId>${hive.group}</groupId>
+              <artifactId>hive-service-rpc</artifactId>
+          </exclusion>
+          <exclusion>
             <groupId>${hive.group}</groupId>
             <artifactId>hive-shims</artifactId>
           </exclusion>
@@ -1805,7 +1809,7 @@
           </exclusion>
           <!-- hive-storage-api is needed and must be explicitly included later -->
           <exclusion>
-            <groupId>${hive.group}</groupId>
+            <groupId>org.apache.hive</groupId>
             <artifactId>hive-storage-api</artifactId>
           </exclusion>
         </exclusions>
@@ -1841,7 +1845,10 @@
             <groupId>${hive.group}</groupId>
             <artifactId>spark-client</artifactId>
           </exclusion>
-
+          <exclusion>
+             <groupId>${hive.group}</groupId>
+             <artifactId>hive-service-rpc</artifactId>
+          </exclusion>
           <!-- excluded dependencies & transitive.
            Some may be needed to be explicitly included-->
           <exclusion>
@@ -2049,6 +2056,10 @@
             <artifactId>hive-shims</artifactId>
           </exclusion>
           <exclusion>
+            <groupId>${hive.group}</groupId>
+            <artifactId>hive-service-rpc</artifactId>
+          </exclusion>
+          <exclusion>
             <groupId>org.apache.thrift</groupId>
             <artifactId>libfb303</artifactId>
           </exclusion>
@@ -2101,6 +2112,10 @@
           <exclusion>
             <groupId>${hive.group}</groupId>
             <artifactId>hive-shims</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>${hive.group}</groupId>
+            <artifactId>hive-service-rpc</artifactId>
           </exclusion>
           <exclusion>
             <groupId>commons-codec</groupId>
@@ -2167,7 +2182,7 @@
       </dependency>
 
       <dependency>
-        <groupId>${hive.group}</groupId>
+        <groupId>org.apache.hive</groupId>
         <artifactId>hive-service-rpc</artifactId>
         <version>4.0.0</version>
         <exclusions>
@@ -2346,7 +2361,7 @@
             <artifactId>hadoop-client-api</artifactId>
           </exclusion>
           <exclusion>
-            <groupId>${hive.group}</groupId>
+            <groupId>org.apache.hive</groupId>
             <artifactId>hive-storage-api</artifactId>
           </exclusion>
         </exclusions>
@@ -2376,7 +2391,7 @@
             <artifactId>orc-core</artifactId>
           </exclusion>
           <exclusion>
-            <groupId>${hive.group}</groupId>
+            <groupId>org.apache.hive</groupId>
             <artifactId>hive-storage-api</artifactId>
           </exclusion>
           <exclusion>
@@ -2565,7 +2580,7 @@
         <version>2.9.1</version>
       </dependency>
       <dependency>
-        <groupId>${hive.group}</groupId>
+        <groupId>org.apache.hive</groupId>
         <artifactId>hive-storage-api</artifactId>
         <version>${hive.storage.version}</version>
         <scope>${hive.storage.scope}</scope>
@@ -2644,7 +2659,7 @@
                       <exclude>org.apache.hadoop:hadoop-mapreduce-client-jobclient</exclude>
                       <exclude>org.jboss.netty</exclude>
                       <exclude>org.codehaus.groovy</exclude>
-                      <exclude>com.amazonaws:aws-java-sdk-bundle</exclude>
+                      <!-- <exclude>com.amazonaws:aws-java-sdk-bundle</exclude> -->
                       <exclude>*:*_2.12</exclude>
                       <exclude>*:*_2.11</exclude>
                       <exclude>*:*_2.10</exclude>

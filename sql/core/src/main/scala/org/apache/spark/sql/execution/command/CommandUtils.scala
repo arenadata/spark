@@ -35,6 +35,7 @@ import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.util.{ArrayData, GenericArrayData}
 import org.apache.spark.sql.classic.SparkSession
+import org.apache.spark.sql.connector.catalog.Table
 import org.apache.spark.sql.errors.QueryCompilationErrors
 import org.apache.spark.sql.execution.QueryExecution
 import org.apache.spark.sql.execution.datasources.{DataSourceUtils, InMemoryFileIndex}
@@ -508,5 +509,16 @@ object CommandUtils extends Logging {
       val count = BigInt(r.getLong(partitionColumns.size))
       (spec, count)
     }.toMap
+  }
+
+  def isPurgeableExternalTable(table: CatalogTable): Boolean = {
+    table.properties.get("external.table.purge") match {
+      case Some(value) => value.toBoolean
+      case None => false
+    }
+  }
+
+  def isPurgeableExternalTable(table: Table): Boolean = {
+    Option(table.properties.get("external.table.purge")).exists(_.toBoolean)
   }
 }
