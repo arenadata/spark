@@ -63,7 +63,9 @@ class ArtifactManager(session: SparkSession) extends AutoCloseable with Logging 
     .get
     .rpcEnv
     .fileServer
-    .addDirectoryIfAbsent(SparkEnv.get.conf.get(SPARK_ARTIFACTORY_DIR_PATH), artifactRootPath.toFile)
+    .addDirectoryIfAbsent(
+      SparkEnv.get.conf.get(SPARK_ARTIFACTORY_DIR_PATH),
+      artifactRootPath.toFile)
 
   // The base directory/URI where all artifacts are stored for this `sessionUUID`.
   protected[artifact] val (artifactPath, artifactURI): (Path, String) =
