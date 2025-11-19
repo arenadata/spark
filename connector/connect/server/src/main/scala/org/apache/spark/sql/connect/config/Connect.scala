@@ -16,8 +16,9 @@
  */
 package org.apache.spark.sql.connect.config
 
-import java.util.concurrent.TimeUnit
+import org.apache.spark.internal.config.ConfigBuilder
 
+import java.util.concurrent.TimeUnit
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.connect.common.config.ConnectCommon
 
@@ -207,4 +208,14 @@ object Connect {
     .version("3.5.0")
     .intConf
     .createWithDefault(200)
+
+  val KERBEROS_PRINCIPAL = ConfigBuilder("spark.connect.kerberos.principal")
+    .version("3.5.4")
+    .stringConf
+    .createOptional
+
+  val KERBEROS_KEYTAB = ConfigBuilder("spark.connect.kerberos.keytab")
+    .version("3.5.4")
+    .stringConf
+    .createOptional
 }
