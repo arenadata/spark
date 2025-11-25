@@ -21,17 +21,25 @@ import java.net.InetSocketAddress
 
 import scala.collection.convert.ImplicitConversions._
 
-import org.apache.spark.internal.Logging
+import org.apache.spark.SparkConf
+import org.apache.spark.deploy.SparkHadoopUtil
+import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.connect.config.Connect
 
 /**
  * The Spark Connect server
  */
 object SparkConnectServer extends Logging {
+
   def main(args: Array[String]): Unit = {
+    val conf = new SparkConf
+
+    initSecurity(conf)
+
     // Set the active Spark Session, and starts SparkEnv instance (via Spark Context)
     logInfo("Starting Spark session.")
-    val session = SparkSession.builder.getOrCreate()
+    val session = SparkSession.builder.config(conf).getOrCreate()
     try {
       try {
         SparkConnectService.start(session.sparkContext)
@@ -50,6 +58,21 @@ object SparkConnectServer extends Logging {
     } finally {
       session.stop()
       SparkConnectService.uiTab.foreach(_.detach())
+    }
+  }
+
+  private def initSecurity(conf: SparkConf): Unit = {
+    if (conf.contains(Connect.KERBEROS_KEYTAB)) {
+      // if you have enabled kerberos the following 2 params must be set
+      val keytabFilename = conf.get(Connect.KERBEROS_KEYTAB)
+        .getOrElse(throw new NoSuchElementException(Connect.KERBEROS_KEYTAB.key))
+      val principalName = conf.get(Connect.KERBEROS_PRINCIPAL)
+        .getOrElse(throw new NoSuchElementException(Connect.KERBEROS_PRINCIPAL.key))
+
+      conf.set(config.KEYTAB.key, keytabFilename)
+      conf.set(config.PRINCIPAL.key, principalName)
+
+      SparkHadoopUtil.get.loginUserFromKeytab(principalName, keytabFilename)
     }
   }
 }
