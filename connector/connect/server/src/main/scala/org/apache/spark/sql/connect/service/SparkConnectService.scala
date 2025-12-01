@@ -24,11 +24,11 @@ import scala.jdk.CollectionConverters._
 
 import com.google.common.base.Ticker
 import com.google.common.cache.{CacheBuilder, RemovalListener, RemovalNotification}
-import com.google.protobuf.MessageLite
+import com.google.protobuf.Message
 import io.grpc.{BindableService, MethodDescriptor, Server, ServerMethodDefinition, ServerServiceDefinition}
 import io.grpc.MethodDescriptor.PrototypeMarshaller
 import io.grpc.netty.NettyServerBuilder
-import io.grpc.protobuf.lite.ProtoLiteUtils
+import io.grpc.protobuf.ProtoUtils
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.stub.StreamObserver
 import org.apache.commons.lang3.StringUtils
@@ -200,20 +200,20 @@ class SparkConnectService(debug: Boolean) extends AsyncService with BindableServ
         sessionId = request.getSessionId)
   }
 
-  private def methodWithCustomMarshallers(methodDesc: MethodDescriptor[MessageLite, MessageLite])
-      : MethodDescriptor[MessageLite, MessageLite] = {
+  private def methodWithCustomMarshallers(methodDesc: MethodDescriptor[Message, Message])
+      : MethodDescriptor[Message, Message] = {
     val recursionLimit =
       SparkEnv.get.conf.get(CONNECT_GRPC_MARSHALLER_RECURSION_LIMIT)
     val requestMarshaller =
-      ProtoLiteUtils.marshallerWithRecursionLimit(
+      ProtoUtils.marshallerWithRecursionLimit(
         methodDesc.getRequestMarshaller
-          .asInstanceOf[PrototypeMarshaller[MessageLite]]
+          .asInstanceOf[PrototypeMarshaller[Message]]
           .getMessagePrototype,
         recursionLimit)
     val responseMarshaller =
-      ProtoLiteUtils.marshallerWithRecursionLimit(
+      ProtoUtils.marshallerWithRecursionLimit(
         methodDesc.getResponseMarshaller
-          .asInstanceOf[PrototypeMarshaller[MessageLite]]
+          .asInstanceOf[PrototypeMarshaller[Message]]
           .getMessagePrototype,
         recursionLimit)
     methodDesc.toBuilder
@@ -234,7 +234,7 @@ class SparkConnectService(debug: Boolean) extends AsyncService with BindableServ
     // For each method, add a customized method descriptor (with updated marshallers)
     // and the original server call handler to the builder.
     serviceDef.getMethods.asScala
-      .asInstanceOf[Iterable[ServerMethodDefinition[MessageLite, MessageLite]]]
+      .asInstanceOf[Iterable[ServerMethodDefinition[Message, Message]]]
       .foreach(method =>
         builder.addMethod(
           methodWithCustomMarshallers(method.getMethodDescriptor),
