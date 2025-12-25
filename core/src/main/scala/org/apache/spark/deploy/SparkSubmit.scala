@@ -1030,10 +1030,13 @@ private[spark] class SparkSubmit extends Logging {
         e
     }
 
+    var exitCode: Int = 0
+
     try {
       app.start(childArgs.toArray, sparkConf)
     } catch {
       case t: Throwable =>
+        exitCode = 1
         throw findCause(t)
     } finally {
       if (args.master.startsWith("k8s") && !isShell(args.primaryResource) &&
@@ -1042,8 +1045,11 @@ private[spark] class SparkSubmit extends Logging {
         try {
           SparkContext.getActive.foreach(_.stop())
         } catch {
-          case e: Throwable => logError(s"Failed to close SparkContext: $e")
+          case e: Throwable =>
+            exitCode = 1
+            logError(s"Failed to close SparkContext: $e")
         }
+        sys.exit(exitCode)
       }
     }
   }
