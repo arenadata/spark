@@ -17,6 +17,8 @@
 package org.apache.spark.deploy.k8s.features
 
 import java.io.File
+import java.io._
+import scala.util.Using
 import java.nio.charset.StandardCharsets.UTF_8
 
 import scala.collection.JavaConverters._
@@ -50,6 +52,22 @@ class HadoopConfDriverFeatureStepSuite extends SparkFunSuite {
     confFiles.foreach { f =>
       Files.write("some data", new File(confDir, f), UTF_8)
     }
+
+    val numbers = List(10, 200, 3000, 40000)
+    val binaryFile = new File(confDir, "another.bin").getAbsolutePath()
+
+    Using(new DataOutputStream(new BufferedOutputStream(new FileOutputStream(binaryFile)))) {
+      dos =>
+        numbers.foreach(dos.writeInt)
+    }.recover {
+      case e: IOException => e.printStackTrace()
+    }
+
+    val nonReadableFile = new File(confDir, "non-readable.xml")
+
+    Files.write("some data", nonReadableFile, UTF_8)
+
+    nonReadableFile.setReadable(false)
 
     val sparkConf = new SparkConfWithEnv(Map(ENV_HADOOP_CONF_DIR -> confDir.getAbsolutePath()))
     val conf = KubernetesTestConf.createDriverConf(sparkConf = sparkConf)
