@@ -166,7 +166,7 @@ private[spark] object KubernetesClientUtils extends Logging {
       f.getName.matches("spark.*(conf|properties)")
 
     val fileFilter = (f: File) => {
-      f.isFile && !testIfTooLargeOrBinary(f) && !testIfSparkConfOrTemplates(f)
+      f.isFile && f.canRead && !testIfTooLargeOrBinary(f) && !testIfSparkConfOrTemplates(f)
     }
     val confFiles: Seq[File] = {
       val dir = new File(confDir)
