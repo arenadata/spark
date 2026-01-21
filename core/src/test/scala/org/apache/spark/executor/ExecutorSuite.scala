@@ -488,9 +488,13 @@ class ExecutorSuite extends SparkFunSuite
         .build(new CacheLoader[String, String] {
           override def load(key: String): String = throw e
         })
-      intercept[Throwable] {
+      val thrown = intercept[Throwable] {
         cache.get("test")
       }
+
+      // Clear the interrupted status that may be set by the guava cache. See SPARK-55045.
+      Thread.interrupted()
+      thrown
     }
 
     def testThrowable(
