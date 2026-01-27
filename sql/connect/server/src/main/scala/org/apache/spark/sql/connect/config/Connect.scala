@@ -326,6 +326,17 @@ object Connect {
       .stringConf
       .createOptional
 
+  val KERBEROS_PRINCIPAL = buildStaticConf("spark.connect.kerberos.principal")
+    .version("3.5.4")
+    .stringConf
+    .createOptional
+
+  val KERBEROS_KEYTAB = buildStaticConf("spark.connect.kerberos.keytab")
+    .version("3.5.4")
+    .stringConf
+    .createOptional
+
+
   val CONNECT_AUTHENTICATE_TOKEN_ENV = "SPARK_CONNECT_AUTHENTICATE_TOKEN"
 
   def getAuthenticateToken: Option[String] = {
