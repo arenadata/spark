@@ -32,6 +32,7 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.security.Principal;
@@ -117,6 +118,8 @@ public class AuthenticationFilter implements Filter {
     private String cookiePath;
     private boolean isCookiePersistent;
     private boolean destroySecretProvider;
+    private Method managementOperationMethod;
+    private Method authenticateMethod;
 
     /**
      * <p>Initializes the authentication filter and signer secret provider.</p>
@@ -166,11 +169,24 @@ public class AuthenticationFilter implements Filter {
             Class<?> klass = Thread.currentThread().getContextClassLoader().loadClass(authHandlerClassName);
             authHandler = (AuthenticationHandler) klass.newInstance();
             authHandler.init(config);
-        } catch (org.apache.hadoop.shaded.javax.servlet.ServletException ex) {
+            resolveAuthMethods(authHandler);
+        } catch (Exception ex) {
             throw new ServletException(ex);
-        } catch (ClassNotFoundException | InstantiationException |
-                 IllegalAccessException ex) {
-            throw new ServletException(ex);
+        }
+    }
+
+    private void resolveAuthMethods(AuthenticationHandler handler) {
+        for (Method m : handler.getClass().getMethods()) {
+            if ("managementOperation".equals(m.getName()) && m.getParameterCount() == 3) {
+                managementOperationMethod = m;
+            }
+            if ("authenticate".equals(m.getName()) && m.getParameterCount() == 2) {
+                authenticateMethod = m;
+            }
+        }
+        if (managementOperationMethod == null || authenticateMethod == null) {
+            throw new IllegalStateException(
+                "Cannot resolve auth methods on " + handler.getClass().getName());
         }
     }
 
@@ -210,78 +226,68 @@ public class AuthenticationFilter implements Filter {
         if ("file".equals(name)) {
             provider = new FileSignerSecretProvider();
             try {
-                provider.init(config, toHadoopServletContext(ctx), validity);
+                initProviderReflective(provider, config, ctx, validity);
             } catch (Exception e) {
                 if (!disallowFallbackToRandomSecretProvider) {
                     LOG.warn("Unable to initialize FileSignerSecretProvider, " +
                             "falling back to use random secrets. Reason: " + e.getMessage());
                     provider = new RandomSignerSecretProvider();
-                    provider.init(config, toHadoopServletContext(ctx), validity);
+                    initProviderReflective(provider, config, ctx, validity);
                 } else {
                     throw e;
                 }
             }
         } else if ("random".equals(name)) {
             provider = new RandomSignerSecretProvider();
-            provider.init(config, toHadoopServletContext(ctx), validity);
+            initProviderReflective(provider, config, ctx, validity);
         } else if ("zookeeper".equals(name)) {
             provider = new ZKSignerSecretProvider();
-            provider.init(config, toHadoopServletContext(ctx), validity);
+            initProviderReflective(provider, config, ctx, validity);
         } else {
             provider = (SignerSecretProvider) Thread.currentThread().
                     getContextClassLoader().loadClass(name).newInstance();
-            provider.init(config, toHadoopServletContext(ctx), validity);
+            initProviderReflective(provider, config, ctx, validity);
         }
         return provider;
     }
 
-    private static org.apache.hadoop.shaded.javax.servlet.ServletContext toHadoopServletContext(
-            jakarta.servlet.ServletContext ctx) {
-        if (ctx == null) {
-            return null;
+    private static void initProviderReflective(SignerSecretProvider provider,
+            Properties config, jakarta.servlet.ServletContext ctx,
+            long validity) throws Exception {
+        Method initMethod = null;
+        for (Method m : provider.getClass().getMethods()) {
+            if ("init".equals(m.getName()) && m.getParameterCount() == 3
+                    && m.getParameterTypes()[2] == long.class) {
+                initMethod = m;
+                break;
+            }
         }
-        if (ctx instanceof org.apache.hadoop.shaded.javax.servlet.ServletContext) {
-            return (org.apache.hadoop.shaded.javax.servlet.ServletContext) ctx;
+        if (initMethod == null) {
+            throw new IllegalStateException(
+                "Cannot find init method on " + provider.getClass());
         }
-        return (org.apache.hadoop.shaded.javax.servlet.ServletContext) Proxy.newProxyInstance(
-                org.apache.hadoop.shaded.javax.servlet.ServletContext.class.getClassLoader(),
-                new Class<?>[]{org.apache.hadoop.shaded.javax.servlet.ServletContext.class},
-                new ShadedJakartaBridge(ctx)
-        );
+        Class<?> ctxClass = initMethod.getParameterTypes()[1];
+        Object hadoopCtx = createServletProxy(ctx, ctxClass);
+        try {
+            initMethod.invoke(provider, config, hadoopCtx, validity);
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof Exception) throw (Exception) cause;
+            throw new RuntimeException(cause);
+        }
     }
 
-    private static org.apache.hadoop.shaded.javax.servlet.http.HttpServletRequest toHadoopHttpServletRequest(
-            jakarta.servlet.http.HttpServletRequest request) {
-        if (request == null) {
-            return null;
-        }
-        if (request instanceof org.apache.hadoop.shaded.javax.servlet.http.HttpServletRequest) {
-            return (org.apache.hadoop.shaded.javax.servlet.http.HttpServletRequest) request;
-        }
-        return (org.apache.hadoop.shaded.javax.servlet.http.HttpServletRequest) Proxy.newProxyInstance(
-                org.apache.hadoop.shaded.javax.servlet.http.HttpServletRequest.class.getClassLoader(),
-                new Class<?>[]{org.apache.hadoop.shaded.javax.servlet.http.HttpServletRequest.class},
-                new ShadedJakartaBridge(request)
-        );
-    }
-
-    private static org.apache.hadoop.shaded.javax.servlet.http.HttpServletResponse toHadoopHttpServletResponse(
-            jakarta.servlet.http.HttpServletResponse response) {
-        if (response == null) {
-            return null;
-        }
-        if (response instanceof org.apache.hadoop.shaded.javax.servlet.http.HttpServletResponse) {
-            return (org.apache.hadoop.shaded.javax.servlet.http.HttpServletResponse) response;
-        }
-        return (org.apache.hadoop.shaded.javax.servlet.http.HttpServletResponse) Proxy.newProxyInstance(
-                org.apache.hadoop.shaded.javax.servlet.http.HttpServletResponse.class.getClassLoader(),
-                new Class<?>[]{org.apache.hadoop.shaded.javax.servlet.http.HttpServletResponse.class},
-                new ShadedJakartaBridge(response)
-        );
+    private static Object createServletProxy(Object jakartaDelegate, Class<?> targetInterface) {
+        if (jakartaDelegate == null) return null;
+        if (targetInterface.isInstance(jakartaDelegate)) return jakartaDelegate;
+        return Proxy.newProxyInstance(
+                targetInterface.getClassLoader(),
+                new Class<?>[]{targetInterface},
+                new ShadedJakartaBridge(jakartaDelegate));
     }
 
     private static class ShadedJakartaBridge implements InvocationHandler {
-        private static final String SHADED_PREFIX = "org.apache.hadoop.shaded.javax.servlet.";
+        private static final String SHADED_PREFIX = "javax.servlet.";
         private final Object delegate;
 
         private ShadedJakartaBridge(Object delegate) {
@@ -667,17 +673,22 @@ public class AuthenticationFilter implements Filter {
                 token = null;
             }
             try {
-                org.apache.hadoop.shaded.javax.servlet.http.HttpServletRequest shadedRequest =
-                        toHadoopHttpServletRequest(httpRequest);
-                org.apache.hadoop.shaded.javax.servlet.http.HttpServletResponse shadedResponse =
-                        toHadoopHttpServletResponse(httpResponse);
-                if (authHandler.managementOperation(token, shadedRequest, shadedResponse)) {
+                if (managementOperationMethod == null) {
+                    resolveAuthMethods(authHandler);
+                }
+                Object hadoopRequest = createServletProxy(httpRequest,
+                        managementOperationMethod.getParameterTypes()[1]);
+                Object hadoopResponse = createServletProxy(httpResponse,
+                        managementOperationMethod.getParameterTypes()[2]);
+                if ((boolean) managementOperationMethod.invoke(
+                        authHandler, token, hadoopRequest, hadoopResponse)) {
                     if (token == null) {
                         if (LOG.isDebugEnabled()) {
                             LOG.debug("Request [{}] triggering authentication. handler: {}",
                                     getRequestURL(httpRequest), authHandler.getClass());
                         }
-                        token = authHandler.authenticate(shadedRequest, shadedResponse);
+                        token = (AuthenticationToken) authenticateMethod.invoke(
+                                authHandler, hadoopRequest, hadoopResponse);
                         if (token != null && token != AuthenticationToken.ANONYMOUS) {
                             if (token.getMaxInactives() > 0) {
                                 token.setMaxInactives(System.currentTimeMillis()
@@ -742,7 +753,16 @@ public class AuthenticationFilter implements Filter {
                     }
                     unauthorizedResponse = false;
                 }
-            } catch (ServletException ex) {
+            } catch (InvocationTargetException ex) {
+                Throwable cause = ex.getCause();
+                if (cause instanceof AuthenticationException) {
+                    throw (AuthenticationException) cause;
+                }
+                if (cause instanceof IOException) {
+                    throw (IOException) cause;
+                }
+                throw new ServletException(cause);
+            } catch (IllegalAccessException ex) {
                 throw new ServletException(ex);
             }
         } catch (AuthenticationException ex) {
