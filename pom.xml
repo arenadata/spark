@@ -187,7 +187,7 @@
     <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
     <fasterxml.jackson.version>2.15.2</fasterxml.jackson.version>
     <fasterxml.jackson.databind.version>2.15.2</fasterxml.jackson.databind.version>
-    <snappy.version>1.1.10.7</snappy.version>
+    <snappy.version>1.1.10.8</snappy.version>
     <netlib.ludovic.dev.version>3.0.3</netlib.ludovic.dev.version>
     <commons-codec.version>1.18.0</commons-codec.version>
     <commons-compress.version>1.27.1</commons-compress.version>
@@ -221,7 +221,7 @@
     <commons-cli.version>1.9.0</commons-cli.version>
     <bouncycastle.version>1.77</bouncycastle.version>
     <tink.version>1.9.0</tink.version>
-    <netty.version>4.1.121.Final</netty.version>
+    <netty.version>4.1.131.Final</netty.version>
     <!--
     If you are changing Arrow version specification, please check
     ./python/pyspark/sql/pandas/utils.py, and ./python/setup.py too.
@@ -810,7 +810,7 @@
       <dependency>
         <groupId>com.github.luben</groupId>
         <artifactId>zstd-jni</artifactId>
-        <version>1.5.5-4</version>
+        <version>1.5.7-7</version>
       </dependency>
       <dependency>
         <groupId>com.clearspring.analytics</groupId>
