@@ -129,6 +129,14 @@ public final class FileSegmentManagedBuffer extends ManagedBuffer {
 
   @Override
   public Object convertToNetty() throws IOException {
+    if (conf.readAheadEnabled()) {
+      FileChannel fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
+      return new ReadAheadFileRegion(
+          fileChannel, offset, length,
+          conf.readAheadChunkSize(),
+          conf.readAheadQueueDepth(),
+          conf.readAheadPoolSize());
+    }
     if (conf.lazyFileDescriptor()) {
       return new DefaultFileRegion(file, offset, length);
     } else {
