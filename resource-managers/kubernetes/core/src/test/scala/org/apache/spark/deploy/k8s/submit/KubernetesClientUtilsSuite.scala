@@ -99,7 +99,8 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
           .withLabels(properties.asJava)
         .endMetadata()
         .withImmutable(true)
-        .addToData(confFileMap.asJava)
+        .addToData(confFileMap.collect{case (key, (value, true)) => key -> value}.asJava)
+        .addToBinaryData(confFileMap.collect{case (key, (value, false)) => key -> value}.asJava)
         .build()
     assert(outputConfigMap === expectedConfigMap)
   }

@@ -78,11 +78,9 @@ private[spark] class KubernetesClusterSchedulerBackend(
 
   private def setUpExecutorConfigMap(driverPod: Option[Pod]): Unit = {
     val configMapName = KubernetesClientUtils.configMapNameExecutor
-    val resolvedExecutorProperties =
-      Map(KUBERNETES_NAMESPACE.key -> namespace)
     val confFilesMap = KubernetesClientUtils
-      .buildSparkConfDirFilesMap(configMapName, conf, resolvedExecutorProperties) ++
-      resolvedExecutorProperties
+      .buildSparkConfDirFilesMap(configMapName, conf, Map(KUBERNETES_NAMESPACE.key -> namespace)) ++
+      Map(KUBERNETES_NAMESPACE.key -> (namespace, true))
     val labels =
       Map(SPARK_APP_ID_LABEL -> applicationId(), SPARK_ROLE_LABEL -> SPARK_POD_EXECUTOR_ROLE)
     val configMap = KubernetesClientUtils.buildConfigMap(configMapName, confFilesMap, labels)

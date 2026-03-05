@@ -25,7 +25,9 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.io.{Codec, Source}
 
+import com.google.common.io.Files
 import io.fabric8.kubernetes.api.model.{ConfigMap, ConfigMapBuilder, KeyToPath}
+import org.apache.commons.codec.binary.Base64
 
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.k8s.{Config, Constants, KubernetesUtils}
@@ -34,6 +36,8 @@ import org.apache.spark.deploy.k8s.Constants.ENV_SPARK_CONF_DIR
 import org.apache.spark.internal.Logging
 
 private[spark] object KubernetesClientUtils extends Logging {
+
+  type ConfigMapItem = (String, Boolean)
 
   // Config map name can be KUBERNETES_DNS_SUBDOMAIN_NAME_MAX_LENGTH chars at max.
   def configMapName(prefix: String): String = {
@@ -63,21 +67,21 @@ private[spark] object KubernetesClientUtils extends Logging {
   def buildSparkConfDirFilesMap(
       configMapName: String,
       sparkConf: SparkConf,
-      resolvedPropertiesMap: Map[String, String]): Map[String, String] = synchronized {
+      resolvedPropertiesMap: Map[String, String]): Map[String, ConfigMapItem] = synchronized {
     val loadedConfFilesMap = KubernetesClientUtils.loadSparkConfDirFiles(sparkConf)
     // Add resolved spark conf to the loaded configuration files map.
     if (resolvedPropertiesMap.nonEmpty) {
       val resolvedProperties: String = KubernetesClientUtils
         .buildStringFromPropertiesMap(configMapName, resolvedPropertiesMap)
-      loadedConfFilesMap ++ Map(Constants.SPARK_CONF_FILE_NAME -> resolvedProperties)
+      loadedConfFilesMap ++ Map(Constants.SPARK_CONF_FILE_NAME -> (resolvedProperties, true))
     } else {
       loadedConfFilesMap
     }
   }
 
-  def buildKeyToPathObjects(confFilesMap: Map[String, String]): Seq[KeyToPath] = {
-    confFilesMap.map {
-      case (fileName: String, _: String) =>
+  def buildKeyToPathObjects(confFilesMap: Map[String, ConfigMapItem], isPlainText: Boolean): Seq[KeyToPath] = {
+    confFilesMap.filter(a => a._2._2 == isPlainText).map {
+      case (fileName: String, (_, _)) =>
         val filePermissionMode = 420  // 420 is decimal for octal literal 0644.
         new KeyToPath(fileName, filePermissionMode, fileName)
     }.toList.sortBy(x => x.getKey) // List is sorted to make mocking based tests work
@@ -87,18 +91,19 @@ private[spark] object KubernetesClientUtils extends Logging {
    * Build a Config Map that will hold the content for environment variable SPARK_CONF_DIR
    * on remote pods.
    */
-  def buildConfigMap(configMapName: String, confFileMap: Map[String, String],
+  def buildConfigMap(configMapName: String, confFileMap: Map[String, (String, Boolean)],
       withLabels: Map[String, String] = Map()): ConfigMap = {
     val configMapNameSpace =
-      confFileMap.getOrElse(KUBERNETES_NAMESPACE.key, KUBERNETES_NAMESPACE.defaultValueString)
+      confFileMap.getOrElse(KUBERNETES_NAMESPACE.key, (KUBERNETES_NAMESPACE.defaultValueString, true))
     new ConfigMapBuilder()
       .withNewMetadata()
         .withName(configMapName)
-        .withNamespace(configMapNameSpace)
+        .withNamespace(configMapNameSpace._1)
         .withLabels(withLabels.asJava)
         .endMetadata()
       .withImmutable(true)
-      .addToData(confFileMap.asJava)
+      .addToData(confFileMap.collect{case (key, (value, true)) => key -> value}.asJava)
+      .addToBinaryData(confFileMap.collect{case (key, (value, false)) => key -> value}.asJava)
       .build()
   }
 
@@ -109,7 +114,7 @@ private[spark] object KubernetesClientUtils extends Logging {
   }
 
   // exposed for testing
-  private[submit] def loadSparkConfDirFiles(conf: SparkConf): Map[String, String] = {
+  private[submit] def loadSparkConfDirFiles(conf: SparkConf): Map[String, ConfigMapItem] = {
     val confDir = Option(conf.getenv(ENV_SPARK_CONF_DIR)).orElse(
       conf.getOption("spark.home").map(dir => s"$dir/conf"))
     val maxSize = conf.get(Config.CONFIG_MAP_MAXSIZE)
@@ -117,7 +122,7 @@ private[spark] object KubernetesClientUtils extends Logging {
       val confFiles: Seq[File] = listConfFiles(confDir.get, maxSize)
       val orderedConfFiles = orderFilesBySize(confFiles)
       var truncatedMapSize: Long = 0
-      val truncatedMap = mutable.HashMap[String, String]()
+      val truncatedMap = mutable.HashMap[String, ConfigMapItem]()
       val skippedFiles = mutable.HashSet[String]()
       var source: Source = Source.fromString("") // init with empty source.
       for (file <- orderedConfFiles) {
@@ -125,7 +130,7 @@ private[spark] object KubernetesClientUtils extends Logging {
           source = Source.fromFile(file)(Codec.UTF8)
           val (fileName, fileContent) = file.getName -> source.mkString
           if ((truncatedMapSize + fileName.length + fileContent.length) < maxSize) {
-            truncatedMap.put(fileName, fileContent)
+            truncatedMap.put(fileName, (fileContent, true))
             truncatedMapSize = truncatedMapSize + (fileName.length + fileContent.length)
           } else {
             skippedFiles.add(fileName)
@@ -133,8 +138,14 @@ private[spark] object KubernetesClientUtils extends Logging {
         } catch {
           case e: MalformedInputException =>
             logWarning(
-              s"Unable to read a non UTF-8 encoded file ${file.getAbsolutePath}. Skipping...", e)
-            None
+              s"Unable to read a non UTF-8 encoded file ${file.getAbsolutePath}. Adding as binary...", e)
+            val (fileName, fileContent) = file.getName -> Base64.encodeBase64String(Files.toByteArray(file))
+            if ((truncatedMapSize + fileName.length + fileContent.length) < maxSize) {
+              truncatedMap.put(fileName, (fileContent, false))
+              truncatedMapSize = truncatedMapSize + (fileName.length + fileContent.length)
+            } else {
+              skippedFiles.add(fileName)
+            }
         } finally {
           source.close()
         }
@@ -149,7 +160,7 @@ private[spark] object KubernetesClientUtils extends Logging {
       }
       truncatedMap.toMap
     } else {
-      Map.empty[String, String]
+      Map.empty[String, ConfigMapItem]
     }
   }
 
