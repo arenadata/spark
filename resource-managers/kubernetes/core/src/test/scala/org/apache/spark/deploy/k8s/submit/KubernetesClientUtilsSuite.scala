@@ -25,6 +25,7 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder
+import org.apache.commons.codec.binary.Base64
 import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.{SparkConf, SparkFunSuite}
@@ -49,13 +50,16 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
   }
 
   test("verify load files, loads only allowed files and not the disallowed files.") {
+    val data = Array[Byte](0x00.toByte, 0xA1.toByte)
     val input: Map[String, Array[Byte]] = Map("test.txt" -> "test123", "z12.zip" -> "zZ",
       "rere.jar" -> "@31", "spark.jar" -> "@31", "_test" -> "", "sample.conf" -> "conf")
       .map(f => f._1 -> f._2.getBytes(StandardCharsets.UTF_8)) ++
-      Map("binary-file.conf" -> Array[Byte](0x00.toByte, 0xA1.toByte))
+      Map("binary-file.conf" -> data)
     val sparkConf = testSetup(input)
     val output = KubernetesClientUtils.loadSparkConfDirFiles(sparkConf)
-    val expectedOutput = Map("test.txt" -> "test123", "sample.conf" -> "conf", "_test" -> "")
+    val expectedOutput = Map("test.txt" -> ("test123", true),
+      "sample.conf" -> ("conf", true), "_test" -> ("", true),
+      "binary-file.conf" -> (Base64.encodeBase64String(data), false))
     assert(output === expectedOutput)
   }
 
@@ -64,11 +68,12 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
     val sparkConf = testSetup(input.map(f => f._1 -> f._2.getBytes(StandardCharsets.UTF_8)))
       .set(Config.CONFIG_MAP_MAXSIZE.key, "60")
     val output = KubernetesClientUtils.loadSparkConfDirFiles(sparkConf)
-    val expectedOutput = Map("testConf.1" -> "test123456", "testConf.2" -> "test123456")
+    val expectedOutput = Map("testConf.1" -> ("test123456", true),
+      "testConf.2" -> ("test123456", true))
     assert(output === expectedOutput)
     val output1 = KubernetesClientUtils.loadSparkConfDirFiles(
       sparkConf.set(Config.CONFIG_MAP_MAXSIZE.key, "250000"))
-    assert(output1 === input)
+    assert(output1 === input.map(a => a._1 -> (a._2, true)))
   }
 
   test("verify load files, truncates the content to maxSize, when keys are equal in length.") {
@@ -76,8 +81,9 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
     val sparkConf = testSetup(input.map(f => f._1 -> f._2.getBytes(StandardCharsets.UTF_8)))
       .set(Config.CONFIG_MAP_MAXSIZE.key, "80")
     val output = KubernetesClientUtils.loadSparkConfDirFiles(sparkConf)
-    val expectedOutput = Map("testConf.1" -> "test123456", "testConf.2" -> "test123456",
-      "testConf.3" -> "test123456")
+    val expectedOutput = Map("testConf.1" -> ("test123456", true),
+      "testConf.2" -> ("test123456", true),
+      "testConf.3" -> ("test123456", true))
     assert(output === expectedOutput)
   }
 

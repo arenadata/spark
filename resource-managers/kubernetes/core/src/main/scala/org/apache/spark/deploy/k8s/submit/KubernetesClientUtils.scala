@@ -79,7 +79,9 @@ private[spark] object KubernetesClientUtils extends Logging {
     }
   }
 
-  def buildKeyToPathObjects(confFilesMap: Map[String, ConfigMapItem], isPlainText: Boolean): Seq[KeyToPath] = {
+  def buildKeyToPathObjects(
+                             confFilesMap: Map[String, ConfigMapItem],
+                             isPlainText: Boolean): Seq[KeyToPath] = {
     confFilesMap.filter(a => a._2._2 == isPlainText).map {
       case (fileName: String, (_, _)) =>
         val filePermissionMode = 420  // 420 is decimal for octal literal 0644.
@@ -94,7 +96,8 @@ private[spark] object KubernetesClientUtils extends Logging {
   def buildConfigMap(configMapName: String, confFileMap: Map[String, (String, Boolean)],
       withLabels: Map[String, String] = Map()): ConfigMap = {
     val configMapNameSpace =
-      confFileMap.getOrElse(KUBERNETES_NAMESPACE.key, (KUBERNETES_NAMESPACE.defaultValueString, true))
+      confFileMap.getOrElse(KUBERNETES_NAMESPACE.key,
+        (KUBERNETES_NAMESPACE.defaultValueString, true))
     new ConfigMapBuilder()
       .withNewMetadata()
         .withName(configMapName)
@@ -138,8 +141,10 @@ private[spark] object KubernetesClientUtils extends Logging {
         } catch {
           case e: MalformedInputException =>
             logWarning(
-              s"Unable to read a non UTF-8 encoded file ${file.getAbsolutePath}. Adding as binary...", e)
-            val (fileName, fileContent) = file.getName -> Base64.encodeBase64String(Files.toByteArray(file))
+              s"Unable to read a non UTF-8 encoded file ${file.getAbsolutePath}. " +
+                s"Adding as binary...", e)
+            val (fileName, fileContent) = file.getName ->
+              Base64.encodeBase64String(Files.toByteArray(file))
             if ((truncatedMapSize + fileName.length + fileContent.length) < maxSize) {
               truncatedMap.put(fileName, (fileContent, false))
               truncatedMapSize = truncatedMapSize + (fileName.length + fileContent.length)

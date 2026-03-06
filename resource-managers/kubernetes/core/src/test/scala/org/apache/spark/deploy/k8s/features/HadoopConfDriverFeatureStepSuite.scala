@@ -16,12 +16,12 @@
  */
 package org.apache.spark.deploy.k8s.features
 
-import java.io.File
 import java.io._
-import scala.util.Using
+import java.io.File
 import java.nio.charset.StandardCharsets.UTF_8
 
 import scala.collection.JavaConverters._
+import scala.util.Using
 
 import com.google.common.io.Files
 import io.fabric8.kubernetes.api.model.ConfigMap

@@ -126,7 +126,9 @@ private[spark] class Client(
         .addNewVolume()
           .withName(SPARK_CONF_VOLUME_DRIVER)
           .withNewConfigMap()
-            .withItems((KubernetesClientUtils.buildKeyToPathObjects(confFilesMap, true)++KubernetesClientUtils.buildKeyToPathObjects(confFilesMap, false)).asJava)
+            .withItems((KubernetesClientUtils.buildKeyToPathObjects(confFilesMap, true)
+              ++KubernetesClientUtils.buildKeyToPathObjects(confFilesMap, false))
+              .sortBy(x => x.getKey).asJava)
             .withName(configMapName)
             .endConfigMap()
           .endVolume()
@@ -152,6 +154,9 @@ private[spark] class Client(
       createdDriverPod =
         kubernetesClient.pods().inNamespace(conf.namespace).resource(resolvedDriverPod).create()
     } catch {
+      case e: NullPointerException =>
+        println(confFilesMap)
+        throw e
       case NonFatal(e) =>
         kubernetesClient.resourceList(preKubernetesResources: _*).delete()
         logError("Please check \"kubectl auth can-i create pod\" first. It should be yes.")
