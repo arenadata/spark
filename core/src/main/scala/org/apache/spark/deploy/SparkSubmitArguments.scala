@@ -108,7 +108,7 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
   private def loadPropertiesFromFile(filePath: String): Unit = {
     if (filePath != null) {
       if (verbose) {
-        logInfo(log"Using properties file: ${MDC(PATH, filePath)}")
+        logInfo(s"Using properties file: $propertiesFile")
       }
       val properties = Utils.getPropertiesFromFile(filePath)
 
@@ -124,7 +124,7 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
       // Property files may contain sensitive information, so redact before printing
       if (verbose) {
         Utils.redact(properties).foreach { case (k, v) =>
-          logInfo(log"Adding default property: ${MDC(KEY, k)}=${MDC(VALUE, v)}")
+          logInfo(s"Adding default property: $k=$v")
         }
       }
     }

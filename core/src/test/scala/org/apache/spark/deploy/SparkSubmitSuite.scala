@@ -1532,6 +1532,22 @@ class SparkSubmitSuite
     }
   }
 
+  private def withPropertyFile(fileName: String, conf: Map[String, String])(f: String => Unit) = {
+    withTempDir { tmpDir =>
+      val props = new java.util.Properties()
+      val propsFile = File.createTempFile(fileName, "", tmpDir)
+      val propsOutputStream = new FileOutputStream(propsFile)
+      try {
+        conf.foreach { case (k, v) => props.put(k, v) }
+        props.store(propsOutputStream, "")
+      } finally {
+        propsOutputStream.close()
+      }
+
+      f(propsFile.getPath)
+    }
+  }
+
   private def updateConfWithFakeS3Fs(conf: Configuration): Unit = {
     conf.set("fs.s3a.impl", classOf[TestFileSystem].getCanonicalName)
     conf.set("fs.s3a.impl.disable.cache", "true")
