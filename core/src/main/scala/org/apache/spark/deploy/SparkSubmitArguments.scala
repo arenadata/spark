@@ -111,8 +111,13 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
         logInfo(log"Using properties file: ${MDC(PATH, filePath)}")
       }
       val properties = Utils.getPropertiesFromFile(filePath)
+
+      // Filter sparkProperties to exclude blacklisted properties using default options
+      val filteredProp = Utils.filterBlacklistedProperties(properties, sparkProperties)
+
+      // Merge filtered default properties into sparkProperties
       properties.foreach { case (k, v) =>
-        if (!sparkProperties.contains(k)) {
+        if (!sparkProperties.contains(k) && !filteredProp.contains(k)) {
           sparkProperties(k) = v
         }
       }
