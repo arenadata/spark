@@ -30,6 +30,7 @@ import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.{SparkConf, SparkFunSuite}
 import org.apache.spark.deploy.k8s.Config
+import org.apache.spark.deploy.k8s.submit.ConfigMapItem
 import org.apache.spark.util.Utils
 
 class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
@@ -57,9 +58,9 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
       Map("binary-file.conf" -> data)
     val sparkConf = testSetup(input)
     val output = KubernetesClientUtils.loadSparkConfDirFiles(sparkConf)
-    val expectedOutput = Map("test.txt" -> ("test123", true),
-      "sample.conf" -> ("conf", true), "_test" -> ("", true),
-      "binary-file.conf" -> (Base64.encodeBase64String(data), false))
+    val expectedOutput = Map("test.txt" -> ConfigMapItem("test123", true),
+      "sample.conf" -> ConfigMapItem("conf", true), "_test" -> ConfigMapItem("", true),
+      "binary-file.conf" -> ConfigMapItem(Base64.encodeBase64String(data), false))
     assert(output === expectedOutput)
   }
 
@@ -68,12 +69,12 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
     val sparkConf = testSetup(input.map(f => f._1 -> f._2.getBytes(StandardCharsets.UTF_8)))
       .set(Config.CONFIG_MAP_MAXSIZE.key, "60")
     val output = KubernetesClientUtils.loadSparkConfDirFiles(sparkConf)
-    val expectedOutput = Map("testConf.1" -> ("test123456", true),
-      "testConf.2" -> ("test123456", true))
+    val expectedOutput = Map("testConf.1" -> ConfigMapItem("test123456", true),
+      "testConf.2" -> ConfigMapItem("test123456", true))
     assert(output === expectedOutput)
     val output1 = KubernetesClientUtils.loadSparkConfDirFiles(
       sparkConf.set(Config.CONFIG_MAP_MAXSIZE.key, "250000"))
-    assert(output1 === input.map(a => a._1 -> (a._2, true)))
+    assert(output1 === input.map(a => a._1 -> ConfigMapItem(a._2, true)))
   }
 
   test("verify load files, truncates the content to maxSize, when keys are equal in length.") {
@@ -81,9 +82,9 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
     val sparkConf = testSetup(input.map(f => f._1 -> f._2.getBytes(StandardCharsets.UTF_8)))
       .set(Config.CONFIG_MAP_MAXSIZE.key, "80")
     val output = KubernetesClientUtils.loadSparkConfDirFiles(sparkConf)
-    val expectedOutput = Map("testConf.1" -> ("test123456", true),
-      "testConf.2" -> ("test123456", true),
-      "testConf.3" -> ("test123456", true))
+    val expectedOutput = Map("testConf.1" -> ConfigMapItem("test123456", true),
+      "testConf.2" -> ConfigMapItem("test123456", true),
+      "testConf.3" -> ConfigMapItem("test123456", true))
     assert(output === expectedOutput)
   }
 
@@ -105,8 +106,12 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
           .withLabels(properties.asJava)
         .endMetadata()
         .withImmutable(true)
-        .addToData(confFileMap.collect{case (key, (value, true)) => key -> value}.asJava)
-        .addToBinaryData(confFileMap.collect{case (key, (value, false)) => key -> value}.asJava)
+        .addToData(confFileMap.collect {
+          case (key, ConfigMapItem(value, true)) => key -> value
+        }.asJava)
+        .addToBinaryData(confFileMap.collect {
+          case (key, ConfigMapItem(value, false)) => key -> value
+        }.asJava)
         .build()
     assert(outputConfigMap === expectedConfigMap)
   }

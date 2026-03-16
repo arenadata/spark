@@ -106,7 +106,7 @@ private[spark] class Client(
     val confFilesMap = KubernetesClientUtils.buildSparkConfDirFilesMap(configMapName,
       conf.sparkConf, resolvedDriverSpec.systemProperties)
     val configMap = KubernetesClientUtils.buildConfigMap(configMapName, confFilesMap +
-        (KUBERNETES_NAMESPACE.key -> (conf.namespace, true)))
+        (KUBERNETES_NAMESPACE.key -> ConfigMapItem(conf.namespace, true)))
 
     // The include of the ENV_VAR for "SPARK_CONF_DIR" is to allow for the
     // Spark command builder to pickup on the Java Options present in the ConfigMap
@@ -127,7 +127,7 @@ private[spark] class Client(
           .withName(SPARK_CONF_VOLUME_DRIVER)
           .withNewConfigMap()
             .withItems((KubernetesClientUtils.buildKeyToPathObjects(confFilesMap, true)
-              ++KubernetesClientUtils.buildKeyToPathObjects(confFilesMap, false))
+              ++ KubernetesClientUtils.buildKeyToPathObjects(confFilesMap, false))
               .sortBy(x => x.getKey).asJava)
             .withName(configMapName)
             .endConfigMap()
@@ -154,9 +154,6 @@ private[spark] class Client(
       createdDriverPod =
         kubernetesClient.pods().inNamespace(conf.namespace).resource(resolvedDriverPod).create()
     } catch {
-      case e: NullPointerException =>
-        println(confFilesMap)
-        throw e
       case NonFatal(e) =>
         kubernetesClient.resourceList(preKubernetesResources: _*).delete()
         logError("Please check \"kubectl auth can-i create pod\" first. It should be yes.")

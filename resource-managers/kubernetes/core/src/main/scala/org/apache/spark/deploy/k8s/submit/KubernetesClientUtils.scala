@@ -35,9 +35,9 @@ import org.apache.spark.deploy.k8s.Config.{KUBERNETES_DNS_SUBDOMAIN_NAME_MAX_LEN
 import org.apache.spark.deploy.k8s.Constants.ENV_SPARK_CONF_DIR
 import org.apache.spark.internal.Logging
 
-private[spark] object KubernetesClientUtils extends Logging {
+case class ConfigMapItem(path: String, isPlainText: Boolean)
 
-  type ConfigMapItem = (String, Boolean)
+private[spark] object KubernetesClientUtils extends Logging {
 
   // Config map name can be KUBERNETES_DNS_SUBDOMAIN_NAME_MAX_LENGTH chars at max.
   def configMapName(prefix: String): String = {
@@ -73,7 +73,8 @@ private[spark] object KubernetesClientUtils extends Logging {
     if (resolvedPropertiesMap.nonEmpty) {
       val resolvedProperties: String = KubernetesClientUtils
         .buildStringFromPropertiesMap(configMapName, resolvedPropertiesMap)
-      loadedConfFilesMap ++ Map(Constants.SPARK_CONF_FILE_NAME -> (resolvedProperties, true))
+      loadedConfFilesMap ++ Map(Constants.SPARK_CONF_FILE_NAME ->
+        ConfigMapItem(resolvedProperties, true))
     } else {
       loadedConfFilesMap
     }
@@ -82,8 +83,8 @@ private[spark] object KubernetesClientUtils extends Logging {
   def buildKeyToPathObjects(
                              confFilesMap: Map[String, ConfigMapItem],
                              isPlainText: Boolean): Seq[KeyToPath] = {
-    confFilesMap.filter(a => a._2._2 == isPlainText).map {
-      case (fileName: String, (_, _)) =>
+    confFilesMap.filter(a => a._2.isPlainText == isPlainText).map {
+      case (fileName: String, _) =>
         val filePermissionMode = 420  // 420 is decimal for octal literal 0644.
         new KeyToPath(fileName, filePermissionMode, fileName)
     }.toList.sortBy(x => x.getKey) // List is sorted to make mocking based tests work
@@ -93,20 +94,22 @@ private[spark] object KubernetesClientUtils extends Logging {
    * Build a Config Map that will hold the content for environment variable SPARK_CONF_DIR
    * on remote pods.
    */
-  def buildConfigMap(configMapName: String, confFileMap: Map[String, (String, Boolean)],
+  def buildConfigMap(configMapName: String, confFileMap: Map[String, ConfigMapItem],
       withLabels: Map[String, String] = Map()): ConfigMap = {
     val configMapNameSpace =
       confFileMap.getOrElse(KUBERNETES_NAMESPACE.key,
-        (KUBERNETES_NAMESPACE.defaultValueString, true))
+        ConfigMapItem(KUBERNETES_NAMESPACE.defaultValueString, true))
     new ConfigMapBuilder()
       .withNewMetadata()
         .withName(configMapName)
-        .withNamespace(configMapNameSpace._1)
+        .withNamespace(configMapNameSpace.path)
         .withLabels(withLabels.asJava)
         .endMetadata()
       .withImmutable(true)
-      .addToData(confFileMap.collect{case (key, (value, true)) => key -> value}.asJava)
-      .addToBinaryData(confFileMap.collect{case (key, (value, false)) => key -> value}.asJava)
+      .addToData(confFileMap.collect{case (key, ConfigMapItem(value, true)) => key -> value}.asJava)
+      .addToBinaryData(confFileMap.collect {
+        case (key, ConfigMapItem(value, false)) => key -> value
+      }.asJava)
       .build()
   }
 
@@ -133,7 +136,7 @@ private[spark] object KubernetesClientUtils extends Logging {
           source = Source.fromFile(file)(Codec.UTF8)
           val (fileName, fileContent) = file.getName -> source.mkString
           if ((truncatedMapSize + fileName.length + fileContent.length) < maxSize) {
-            truncatedMap.put(fileName, (fileContent, true))
+            truncatedMap.put(fileName, ConfigMapItem(fileContent, true))
             truncatedMapSize = truncatedMapSize + (fileName.length + fileContent.length)
           } else {
             skippedFiles.add(fileName)
@@ -146,7 +149,7 @@ private[spark] object KubernetesClientUtils extends Logging {
             val (fileName, fileContent) = file.getName ->
               Base64.encodeBase64String(Files.toByteArray(file))
             if ((truncatedMapSize + fileName.length + fileContent.length) < maxSize) {
-              truncatedMap.put(fileName, (fileContent, false))
+              truncatedMap.put(fileName, ConfigMapItem(fileContent, false))
               truncatedMapSize = truncatedMapSize + (fileName.length + fileContent.length)
             } else {
               skippedFiles.add(fileName)
