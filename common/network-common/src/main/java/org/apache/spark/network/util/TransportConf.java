@@ -411,4 +411,25 @@ public class TransportConf {
     return JavaUtils.timeStringAsSec(
       conf.get("spark.shuffle.push.server.mergedShuffleCleaner.shutdown.timeout", "60s"));
   }
+
+  public boolean readAheadEnabled() {
+    return conf.getBoolean(getConfKey("io.readAhead"), false);
+  }
+
+  /** Size of each read-ahead chunk. Default 8m. */
+  public int readAheadChunkSize() {
+    return (int) JavaUtils.byteStringAsBytes(
+        conf.get(getConfKey("io.readAheadChunkSize"), "8m"));
+  }
+
+  /** Number of pre-read chunks to buffer per transfer. Default 4. */
+  public int readAheadQueueDepth() {
+    return conf.getInt(getConfKey("io.readAheadQueueDepth"), 4);
+  }
+
+  /** Number of I/O threads in the shared read-ahead pool. Default 4. */
+  public int readAheadPoolSize() {
+    return conf.getInt(getConfKey("io.readAheadPoolSize"), 4);
+  }
+
 }
