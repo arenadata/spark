@@ -1056,9 +1056,145 @@ class SparkSubmitSuite
         "--master", "local",
         unusedJar.toString)
       val appArgs = new SparkSubmitArguments(args, env = Map("SPARK_CONF_DIR" -> path))
-      assert(appArgs.propertiesFile != null)
-      assert(appArgs.propertiesFile.startsWith(path))
       appArgs.executorMemory should be ("3g")
+    }
+  }
+
+  test("SPARK-48392: load spark-defaults.conf when --load-spark-defaults is set") {
+    forConfDir(Map("spark.executor.memory" -> "3g", "spark.driver.memory" -> "3g")) { path =>
+      withPropertyFile("spark-conf.properties",
+        Map("spark.executor.cores" -> "16", "spark.driver.memory" -> "4g")) { propsFile =>
+        val unusedJar = TestUtils.createJarWithClasses(Seq.empty)
+        val args = Seq(
+          "--class", SimpleApplicationTest.getClass.getName.stripSuffix("$"),
+          "--name", "testApp",
+          "--master", "local",
+          "--properties-file", propsFile,
+          "--load-spark-defaults",
+          unusedJar.toString)
+        val appArgs = new SparkSubmitArguments(args, env = Map("SPARK_CONF_DIR" -> path))
+        appArgs.executorCores should be("16")
+        appArgs.executorMemory should be("3g")
+        appArgs.driverMemory should be("4g")
+      }
+    }
+  }
+
+  test("SPARK-48392: should skip spark-defaults.conf when --load-spark-defaults is not set") {
+    forConfDir(Map("spark.executor.memory" -> "3g", "spark.driver.memory" -> "3g")) { path =>
+      withPropertyFile("spark-conf.properties",
+        Map("spark.executor.cores" -> "16", "spark.driver.memory" -> "4g")) { propsFile =>
+        val unusedJar = TestUtils.createJarWithClasses(Seq.empty)
+        val args = Seq(
+          "--class", SimpleApplicationTest.getClass.getName.stripSuffix("$"),
+          "--name", "testApp",
+          "--master", "local",
+          "--properties-file", propsFile,
+          unusedJar.toString)
+        val appArgs = new SparkSubmitArguments(args, env = Map("SPARK_CONF_DIR" -> path))
+        appArgs.executorCores should be("16")
+        appArgs.driverMemory should be("4g")
+        appArgs.executorMemory should be(null)
+      }
+    }
+  }
+
+  test("SPARK-48392: blacklist should applies to properties-file when " +
+    "--load-spark-defaults is set") {
+    forConfDir(Map("spark.sql.extensions" -> "bar",
+      "spark.sql.security.confblacklist" -> "spark.sql.extensions")) { path =>
+      withPropertyFile("spark-conf.properties",
+        Map("spark.sql.extensions" -> "baz")) { propsFile =>
+        val unusedJar = TestUtils.createJarWithClasses(Seq.empty)
+        val args = Seq(
+          "--class", SimpleApplicationTest.getClass.getName.stripSuffix("$"),
+          "--name", "testApp",
+          "--master", "local",
+          "--properties-file", propsFile,
+          "--load-spark-defaults",
+          unusedJar.toString)
+        val appArgs = new SparkSubmitArguments(args, env = Map("SPARK_CONF_DIR" -> path))
+        appArgs.sparkProperties("spark.sql.extensions") should be("bar")
+      }
+    }
+  }
+
+  test("SPARK-48392: blacklist should applies to properties-file when " +
+    "--load-spark-defaults is not set") {
+    forConfDir(Map("spark.sql.extensions" -> "bar",
+      "spark.sql.security.confblacklist" -> "spark.sql.extensions")) { path =>
+      withPropertyFile("spark-conf.properties",
+        Map("spark.sql.extensions" -> "baz")) { propsFile =>
+        val unusedJar = TestUtils.createJarWithClasses(Seq.empty)
+        val args = Seq(
+          "--class", SimpleApplicationTest.getClass.getName.stripSuffix("$"),
+          "--name", "testApp",
+          "--master", "local",
+          "--properties-file", propsFile,
+          unusedJar.toString)
+        val appArgs = new SparkSubmitArguments(args, env = Map("SPARK_CONF_DIR" -> path))
+        assert(!appArgs.sparkProperties.contains("spark.sql.extensions"))
+      }
+    }
+  }
+
+  test("SPARK-48392: --properties-file should not override blacklist from spark-defaults.conf " +
+    "when --load-spark-defaults is set") {
+    forConfDir(Map(
+      "spark.sql.security.confblacklist" -> "spark.sql.extensions")) { path =>
+      withPropertyFile("spark-conf.properties",
+        Map("spark.sql.security.confblacklist" -> "bar",
+          "spark.sql.extensions" -> "baz")) { propsFile =>
+        val unusedJar = TestUtils.createJarWithClasses(Seq.empty)
+        val args = Seq(
+          "--class", SimpleApplicationTest.getClass.getName.stripSuffix("$"),
+          "--name", "testApp",
+          "--master", "local",
+          "--properties-file", propsFile,
+          "--load-spark-defaults",
+          unusedJar.toString)
+        val appArgs = new SparkSubmitArguments(args, env = Map("SPARK_CONF_DIR" -> path))
+        appArgs.sparkProperties("spark.sql.security.confblacklist"
+          ) should be("spark.sql.extensions")
+        assert(!appArgs.sparkProperties.contains("spark.sql.extensions"))
+      }
+    }
+  }
+
+  test("ADH-4803: blacklist should not skip spark-defaults.conf defined options") {
+    forConfDir(Map("spark.sql.security.confblacklist" -> "spark.sql.extensions",
+      "spark.sql.extensions" -> "baz", "spark.driver.memory" -> "4g")) { path =>
+      val unusedJar = TestUtils.createJarWithClasses(Seq.empty)
+      val args = Seq(
+        "--class", SimpleApplicationTest.getClass.getName.stripSuffix("$"),
+        "--name", "testApp",
+        "--master", "local",
+        unusedJar.toString)
+      val appArgs = new SparkSubmitArguments(args, env = Map("SPARK_CONF_DIR" -> path))
+      appArgs.sparkProperties("spark.sql.security.confblacklist"
+      ) should be("spark.sql.extensions")
+      appArgs.sparkProperties("spark.sql.extensions") should be("baz")
+      appArgs.sparkProperties("spark.driver.memory") should be("4g")
+    }
+  }
+
+  test("ADH-4803: blacklist should skip --conf defined options") {
+    forConfDir(Map("spark.sql.security.confblacklist" -> "spark.sql.extensions",
+      "spark.sql.extensions" -> "baz", "spark.driver.memory" -> "4g")) { path =>
+      val unusedJar = TestUtils.createJarWithClasses(Seq.empty)
+      val args = Seq(
+        "--class", SimpleApplicationTest.getClass.getName.stripSuffix("$"),
+        "--name", "testApp",
+        "--master", "local",
+        "--conf", "spark.sql.extensions=bar",
+        "--conf", "spark.executor.cores=16",
+        unusedJar.toString)
+      val appArgs = new SparkSubmitArguments(args, env = Map("SPARK_CONF_DIR" -> path))
+      appArgs.sparkProperties("spark.sql.security.confblacklist"
+      ) should be("spark.sql.extensions")
+      appArgs.sparkProperties("spark.sql.extensions") should be("baz")
+      appArgs.sparkProperties("spark.driver.memory") should be("4g")
+      appArgs.sparkProperties("spark.executor.cores") should be("16")
     }
   }
 
@@ -1492,6 +1628,22 @@ class SparkSubmitSuite
       for ((key, value) <- defaults) writer.write(s"$key $value\n")
       writer.close()
       f(tmpDir.getAbsolutePath)
+    }
+  }
+
+  private def withPropertyFile(fileName: String, conf: Map[String, String])(f: String => Unit) = {
+    withTempDir { tmpDir =>
+      val props = new java.util.Properties()
+      val propsFile = File.createTempFile(fileName, "", tmpDir)
+      val propsOutputStream = new FileOutputStream(propsFile)
+      try {
+        conf.foreach { case (k, v) => props.put(k, v) }
+        props.store(propsOutputStream, "")
+      } finally {
+        propsOutputStream.close()
+      }
+
+      f(propsFile.getPath)
     }
   }
 
