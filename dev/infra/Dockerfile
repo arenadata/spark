@@ -43,7 +43,7 @@ RUN mkdir -p /usr/local/pypy/pypy3.8 && \
     ln -sf /usr/local/pypy/pypy3.8/bin/pypy /usr/local/bin/pypy3.8 && \
     ln -sf /usr/local/pypy/pypy3.8/bin/pypy /usr/local/bin/pypy3
 
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | pypy3
+RUN curl -sS https://bootstrap.pypa.io/pip/3.8/get-pip.py | pypy3
 
 RUN $APT_INSTALL gnupg ca-certificates pandoc
 RUN echo 'deb https://cloud.r-project.org/bin/linux/ubuntu focal-cran40/' >> /etc/apt/sources.list
@@ -55,16 +55,15 @@ RUN $APT_INSTALL r-base libcurl4-openssl-dev qpdf libssl-dev zlib1g-dev
 RUN Rscript -e "install.packages(c('knitr', 'markdown', 'rmarkdown', 'testthat', 'devtools', 'e1071', 'survival', 'arrow', 'roxygen2', 'xml2'), repos='https://cloud.r-project.org/')"
 
 # See more in SPARK-39959, roxygen2 < 7.2.1
-RUN apt-get install -y libcurl4-openssl-dev libgit2-dev libssl-dev libxml2-dev \
+RUN apt-get install -y cmake libcurl4-openssl-dev libgit2-dev libssl-dev libxml2-dev \
           libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev \
-          libtiff5-dev libjpeg-dev
-RUN Rscript -e "install.packages(c('devtools'), repos='https://cloud.r-project.org/')"
+          libtiff5-dev libjpeg-dev libwebp-dev
+RUN Rscript -e "install.packages('ragg', repos='https://cloud.r-project.org/')"
+RUN Rscript -e "install.packages(c('remotes', 'devtools'), repos='https://cloud.r-project.org/')"
 RUN Rscript -e "devtools::install_version('roxygen2', version='7.2.0', repos='https://cloud.r-project.org')"
 
-# See more in SPARK-39735
-ENV R_LIBS_SITE "/usr/local/lib/R/site-library:${R_LIBS_SITE}:/usr/lib/R/library"
-
-RUN pypy3 -m pip install numpy 'pandas<=2.0.3' scipy coverage matplotlib
+RUN pypy3 -m pip install numpy 'pandas<=2.0.3' coverage matplotlib && \
+    pypy3 -m pip install --only-binary scipy scipy
 RUN python3.9 -m pip install 'numpy==1.25.1' 'pyarrow==12.0.1' 'pandas<=2.0.3' scipy unittest-xml-reporting plotly>=4.8 'mlflow>=2.3.1' coverage 'matplotlib==3.7.2' openpyxl 'memory-profiler==0.60.0' 'scikit-learn==1.1.*'
 
 # Add Python deps for Spark Connect.
