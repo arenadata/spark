@@ -30,7 +30,7 @@ on:
         description: Branch to run the build against
         required: false
         type: string
-        default: branch-3.5
+        default: 3.5.4-develop
       hadoop:
         description: Hadoop version to run with. HADOOP_PROFILE environment variable should accept it.
         required: false
@@ -66,10 +66,10 @@ jobs:
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
-        repository: apache/spark
+        repository: arenadata/spark
         ref: ${{ inputs.branch }}
     - name: Sync the current branch with the latest in Apache Spark
-      if: github.repository != 'apache/spark'
+      if: github.repository != 'arenadata/spark'
       run: |
         echo "APACHE_SPARK_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
         git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
@@ -222,10 +222,10 @@ jobs:
       # In order to fetch changed files
       with:
         fetch-depth: 0
-        repository: apache/spark
+        repository: arenadata/spark
         ref: ${{ inputs.branch }}
     - name: Sync the current branch with the latest in Apache Spark
-      if: github.repository != 'apache/spark'
+      if: github.repository != 'arenadata/spark'
       run: |
         echo "APACHE_SPARK_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
         git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
@@ -317,10 +317,10 @@ jobs:
         # In order to fetch changed files
         with:
           fetch-depth: 0
-          repository: apache/spark
+          repository: arenadata/spark
           ref: ${{ inputs.branch }}
       - name: Sync the current branch with the latest in Apache Spark
-        if: github.repository != 'apache/spark'
+        if: github.repository != 'arenadata/spark'
         run: |
           echo "APACHE_SPARK_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
           git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
@@ -395,13 +395,13 @@ jobs:
       # In order to fetch changed files
       with:
         fetch-depth: 0
-        repository: apache/spark
+        repository: arenadata/spark
         ref: ${{ inputs.branch }}
     - name: Add GITHUB_WORKSPACE to git trust safe.directory
       run: |
         git config --global --add safe.directory ${GITHUB_WORKSPACE}
     - name: Sync the current branch with the latest in Apache Spark
-      if: github.repository != 'apache/spark'
+      if: github.repository != 'arenadata/spark'
       run: |
         echo "APACHE_SPARK_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
         git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
@@ -494,13 +494,13 @@ jobs:
       # In order to fetch changed files
       with:
         fetch-depth: 0
-        repository: apache/spark
+        repository: arenadata/spark
         ref: ${{ inputs.branch }}
     - name: Add GITHUB_WORKSPACE to git trust safe.directory
       run: |
         git config --global --add safe.directory ${GITHUB_WORKSPACE}
     - name: Sync the current branch with the latest in Apache Spark
-      if: github.repository != 'apache/spark'
+      if: github.repository != 'arenadata/spark'
       run: |
         echo "APACHE_SPARK_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
         git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
@@ -558,10 +558,10 @@ jobs:
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
-        repository: apache/spark
+        repository: arenadata/spark
         ref: ${{ inputs.branch }}
     - name: Sync the current branch with the latest in Apache Spark
-      if: github.repository != 'apache/spark'
+      if: github.repository != 'arenadata/spark'
       run: |
         git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
         git -c user.name='Apache Spark Test Account' -c user.email='sparktestacc@gmail.com' merge --no-commit --progress --squash FETCH_HEAD
@@ -597,13 +597,13 @@ jobs:
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
-        repository: apache/spark
+        repository: arenadata/spark
         ref: ${{ inputs.branch }}
     - name: Add GITHUB_WORKSPACE to git trust safe.directory
       run: |
         git config --global --add safe.directory ${GITHUB_WORKSPACE}
     - name: Sync the current branch with the latest in Apache Spark
-      if: github.repository != 'apache/spark'
+      if: github.repository != 'arenadata/spark'
       run: |
         echo "APACHE_SPARK_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
         git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
@@ -740,10 +740,10 @@ jobs:
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
-        repository: apache/spark
+        repository: arenadata/spark
         ref: ${{ inputs.branch }}
     - name: Sync the current branch with the latest in Apache Spark
-      if: github.repository != 'apache/spark'
+      if: github.repository != 'arenadata/spark'
       run: |
         git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
         git -c user.name='Apache Spark Test Account' -c user.email='sparktestacc@gmail.com' merge --no-commit --progress --squash FETCH_HEAD
@@ -790,10 +790,10 @@ jobs:
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
-        repository: apache/spark
+        repository: arenadata/spark
         ref: ${{ inputs.branch }}
     - name: Sync the current branch with the latest in Apache Spark
-      if: github.repository != 'apache/spark'
+      if: github.repository != 'arenadata/spark'
       run: |
         git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
         git -c user.name='Apache Spark Test Account' -c user.email='sparktestacc@gmail.com' merge --no-commit --progress --squash FETCH_HEAD
@@ -840,10 +840,10 @@ jobs:
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
-        repository: apache/spark
+        repository: arenadata/spark
         ref: ${{ inputs.branch }}
     - name: Sync the current branch with the latest in Apache Spark
-      if: github.repository != 'apache/spark'
+      if: github.repository != 'arenadata/spark'
       run: |
         git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
         git -c user.name='Apache Spark Test Account' -c user.email='sparktestacc@gmail.com' merge --no-commit --progress --squash FETCH_HEAD
@@ -944,10 +944,10 @@ jobs:
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
-        repository: apache/spark
+        repository: arenadata/spark
         ref: ${{ inputs.branch }}
     - name: Sync the current branch with the latest in Apache Spark
-      if: github.repository != 'apache/spark'
+      if: github.repository != 'arenadata/spark'
       run: |
         echo "APACHE_SPARK_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
         git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
@@ -1002,10 +1002,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          repository: apache/spark
+          repository: arenadata/spark
           ref: ${{ inputs.branch }}
       - name: Sync the current branch with the latest in Apache Spark
-        if: github.repository != 'apache/spark'
+        if: github.repository != 'arenadata/spark'
         run: |
           echo "APACHE_SPARK_REF=$(git rev-parse HEAD)" >> $GITHUB_ENV
           git fetch https://github.com/$GITHUB_REPOSITORY.git ${GITHUB_REF#refs/heads/}
