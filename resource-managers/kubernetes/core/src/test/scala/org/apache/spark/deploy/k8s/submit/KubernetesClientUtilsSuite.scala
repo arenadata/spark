@@ -30,7 +30,6 @@ import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.{SparkConf, SparkFunSuite}
 import org.apache.spark.deploy.k8s.Config
-import org.apache.spark.deploy.k8s.submit.ConfigMapItem
 import org.apache.spark.util.Utils
 
 class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {

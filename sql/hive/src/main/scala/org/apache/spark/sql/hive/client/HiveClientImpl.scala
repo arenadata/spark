@@ -44,6 +44,7 @@ import org.apache.hadoop.hive.serde.serdeConstants
 import org.apache.hadoop.hive.serde2.MetadataTypedColumnsetSerDe
 import org.apache.hadoop.hive.serde2.`lazy`.LazySimpleSerDe
 import org.apache.hadoop.security.UserGroupInformation
+
 import org.apache.spark.{SparkConf, SparkException, SparkThrowable}
 import org.apache.spark.deploy.SparkHadoopUtil.SOURCE_SPARK
 import org.apache.spark.internal.Logging
@@ -772,7 +773,8 @@ private[hive] class HiveClientImpl(
    */
   override def getPartitionNames(
                                   table: CatalogTable,
-                                  partialSpec: Option[TablePartitionSpec] = None): Seq[String] = withHiveState {
+                                  partialSpec: Option[TablePartitionSpec] = None):
+  Seq[String] = withHiveState {
     val hivePartitionNames =
       partialSpec match {
         case None =>
@@ -787,7 +789,8 @@ private[hive] class HiveClientImpl(
 
   override def getPartitionOption(
                                    rawHiveTable: RawHiveTable,
-                                   spec: TablePartitionSpec): Option[CatalogTablePartition] = withHiveState {
+                                   spec: TablePartitionSpec):
+  Option[CatalogTablePartition] = withHiveState {
     val hiveTable = rawHiveTable.rawTable.asInstanceOf[HiveTable]
     val hivePartition = shim.getPartition(client, hiveTable, spec.asJava, false)
     Option(hivePartition).map(fromHivePartition)
@@ -805,7 +808,8 @@ private[hive] class HiveClientImpl(
 
   private def getPartitions(
                              hiveTable: HiveTable,
-                             spec: Option[TablePartitionSpec]): Seq[CatalogTablePartition] = withHiveState {
+                             spec: Option[TablePartitionSpec]):
+  Seq[CatalogTablePartition] = withHiveState {
     val partSpec = spec match {
       case None => CatalogTypes.emptyTablePartitionSpec
       case Some(s) =>
@@ -819,7 +823,8 @@ private[hive] class HiveClientImpl(
 
   override def getPartitionsByFilter(
                                       rawHiveTable: RawHiveTable,
-                                      predicates: Seq[Expression]): Seq[CatalogTablePartition] = withHiveState {
+                                      predicates: Seq[Expression]):
+  Seq[CatalogTablePartition] = withHiveState {
     val hiveTable = rawHiveTable.rawTable.asInstanceOf[HiveTable]
     hiveTable.setOwner(userName)
     val parts = shim.getPartitionsByFilter(
@@ -1031,8 +1036,8 @@ private[hive] class HiveClientImpl(
     shim.alterFunction(client, db, func)
   }
 
-  override def getFunctionOption(
-                                  db: String, name: String): Option[CatalogFunction] = withHiveState {
+  override def getFunctionOption(db: String, name: String):
+  Option[CatalogFunction] = withHiveState {
     shim.getFunctionOption(client, db, name)
   }
 
