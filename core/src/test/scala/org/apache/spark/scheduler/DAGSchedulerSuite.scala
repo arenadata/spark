@@ -3204,7 +3204,9 @@ class DAGSchedulerSuite extends SparkFunSuite with TempLocalSparkContext with Ti
     assert(scheduler.runningStages.size === 0)
     assert(scheduler.activeJobs.isEmpty)
     assert(resultStage.latestInfo.failureReason.isDefined)
-    assert(resultStage.latestInfo.failureReason.get.contains("ignored"))
+    assert(resultStage.latestInfo.failureReason.get.
+      contains("A shuffle map stage with indeterminate output was failed and retried. " +
+        "However, Spark cannot rollback the ResultStage"))
     assert(scheduler.activeJobs.isEmpty, "Aborting the stage aborts the job as well.")
   }
 
