@@ -2285,6 +2285,7 @@ class DAGSchedulerSuite extends SparkFunSuite with TempLocalSparkContext with Ti
     sc.listenerBus.waitUntilEmpty()
 
     Thread.sleep(DAGScheduler.RESUBMIT_TIMEOUT * 2)
+    dagEventProcessLoopTester.runEvents()
     // map stage is running by resubmitted, result stage is waiting
     // map tasks and the origin result task 1.0 are running
     assert(scheduler.runningStages.size == 1, "Map stage should be running")
