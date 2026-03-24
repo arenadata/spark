@@ -62,7 +62,14 @@ RUN Rscript -e "install.packages('ragg', repos='https://cloud.r-project.org/')"
 RUN Rscript -e "install.packages(c('remotes', 'devtools'), repos='https://cloud.r-project.org/')"
 RUN Rscript -e "devtools::install_version('roxygen2', version='7.2.0', repos='https://cloud.r-project.org')"
 
-RUN pypy3 -m pip install 'numpy==1.24.4' 'pandas==2.0.3' 'scipy==1.10.1' 'coverage==7.4.4' 'matplotlib==3.7.5' 'gast==0.5.4'
+# scipy dependencies, see https://github.com/scipy/scipy/issues/21100
+RUN echo "pythran==0.12.1" > /tmp/constraints.txt && \
+    echo "gast==0.5.0" >> /tmp/constraints.txt && \
+    echo "pyproject_metadata==0.8.1" >> /tmp/constraints.txt && \
+    echo "beniget==0.4.0" >> /tmp/constraints.txt && \
+    PIP_CONSTRAINT=/tmp/constraints.txt pypy3 -m pip install 'scipy==1.10.1' -v
+RUN echo "setuptools==67.8" > /tmp/constraints.txt && \
+    PIP_CONSTRAINT=/tmp/constraints.txt pypy3 -m pip install numpy 'pandas<=2.0.3' coverage matplotlib -v
 RUN python3.9 -m pip install 'numpy==1.25.1' 'pyarrow==12.0.1' 'pandas<=2.0.3' scipy unittest-xml-reporting plotly>=4.8 'mlflow>=2.3.1' coverage 'matplotlib==3.7.2' openpyxl 'memory-profiler==0.60.0' 'scikit-learn==1.1.*'
 
 # Add Python deps for Spark Connect.
