@@ -508,7 +508,7 @@ def main():
         test_env = "spark_jenkins"
     else:
         # else we're running locally or GitHub Actions.
-        build_tool = "sbt"
+        build_tool = os.environ.get("BUILD_TOOL", "maven")
         scala_version = os.environ.get("SCALA_PROFILE")
         hadoop_version = os.environ.get("HADOOP_PROFILE", "hadoop3")
         if "GITHUB_ACTIONS" in os.environ:
