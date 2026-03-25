@@ -1878,6 +1878,27 @@ private[spark] object Utils
     System.getProperty("java.version").split("[+.\\-]+", 3)(0).toInt >= 21
 
   /**
+   * Whether the underlying Java version is at least 17.0.14.
+   */
+  def isJavaVersionAtLeast17_0_14: Boolean = {
+    val versionStr = System.getProperty("java.version")
+    // Extract the numeric part up to the first dash or plus
+    val numericPart = versionStr.split("[+-]")(0)
+    val parts = numericPart.split('.').map(_.toInt)
+    parts match {
+      case Array(major, minor, patch) =>
+        major > 17 || (major == 17 && minor == 0 && patch >= 14) || (major == 17 && minor > 0)
+      // If only two parts, patch is considered 0 (unlikely for 17.0.x)
+      case Array(major, minor) =>
+        major > 17 || (major == 17 && minor > 0)
+      case Array(major) if major > 17 =>
+        true
+      case _ =>
+        false
+    }
+  }
+
+  /**
    * Whether the underlying operating system is Mac OS X and processor is Apple Silicon.
    */
   val isMacOnAppleSilicon = SystemUtils.IS_OS_MAC_OSX && SystemUtils.OS_ARCH.equals("aarch64")
