@@ -1127,7 +1127,8 @@ object ExcludedDependencies {
       ExclusionRule(organization = "com.sun.jersey"),
       ExclusionRule("javax.servlet", "javax.servlet-api"),
       ExclusionRule(organization = "ch.qos.logback"),
-      ExclusionRule("javax.ws.rs", "jsr311-api"))
+      ExclusionRule("javax.ws.rs", "jsr311-api"),
+      ExclusionRule("org.eclipse.jetty.aggregate", "jetty-all"))
   )
 }
 
