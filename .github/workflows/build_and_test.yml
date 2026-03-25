@@ -467,6 +467,7 @@ jobs:
       env: ${{ fromJSON(inputs.envs) }}
       shell: 'script -q -e -c "bash {0}"'
       run: |
+        export TERM=xterm-256color
         if [[ "$MODULES_TO_TEST" == "pyspark-errors" ]]; then
           export PATH=$PATH:$HOME/miniconda/bin
           export SKIP_PACKAGING=false
@@ -569,6 +570,7 @@ jobs:
       env: ${{ fromJSON(inputs.envs) }}
       shell: 'script -q -e -c "bash {0}"'
       run: |
+        export TERM=xterm-256color
         # The followings are also used by `r-lib/actions/setup-r` to avoid
         # R issues at docker environment
         export TZ=UTC
