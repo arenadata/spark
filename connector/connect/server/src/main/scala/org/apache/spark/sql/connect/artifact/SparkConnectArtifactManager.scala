@@ -303,7 +303,8 @@ object SparkConnectArtifactManager extends Logging {
     }
     val oldArtifactUri = currentArtifactRootUri
     currentArtifactRootUri = SparkEnv.get.rpcEnv.fileServer
-      .addDirectoryIfAbsent(SparkEnv.get.conf.get(SPARK_ARTIFACTORY_DIR_PATH),
+      .addDirectoryIfAbsent(
+        SparkEnv.get.conf.get(SPARK_ARTIFACTORY_DIR_PATH),
         artifactRootPath.toFile)
     lastKnownSparkContextInstance = sc
     logDebug(s"Artifact URI updated from $oldArtifactUri to $currentArtifactRootUri")
