@@ -505,23 +505,26 @@ class UtilsSuite extends SparkFunSuite with ResetSystemProperties {
     assert(Utils.createDirectory(testDirPath, "scenario3").exists())
     assert(testDir.setReadable(true))
 
-    // 4. The parent directory cannot write
-    val scenario4 = new File(testDir, "scenario4")
-    assert(testDir.canWrite)
-    assert(testDir.setWritable(false))
-    assert(!Utils.createDirectory(scenario4))
-    assert(!scenario4.exists())
-    assertThrows[IOException](Utils.createDirectory(testDirPath, "scenario4"))
-    assert(testDir.setWritable(true))
+    val userName = System.getProperty("user.name")
+    if (userName != "root") {
+      // 4. The parent directory cannot write
+      val scenario4 = new File(testDir, "scenario4")
+      assert(testDir.canWrite)
+      assert(testDir.setWritable(false))
+      assert(!Utils.createDirectory(scenario4))
+      assert(!scenario4.exists())
+      assertThrows[IOException](Utils.createDirectory(testDirPath, "scenario4"))
+      assert(testDir.setWritable(true))
 
-    // 5. The parent directory cannot execute
-    val scenario5 = new File(testDir, "scenario5")
-    assert(testDir.canExecute)
-    assert(testDir.setExecutable(false))
-    assert(!Utils.createDirectory(scenario5))
-    assert(!scenario5.exists())
-    assertThrows[IOException](Utils.createDirectory(testDirPath, "scenario5"))
-    assert(testDir.setExecutable(true))
+      // 5. The parent directory cannot execute
+      val scenario5 = new File(testDir, "scenario5")
+      assert(testDir.canExecute)
+      assert(testDir.setExecutable(false))
+      assert(!Utils.createDirectory(scenario5))
+      assert(!scenario5.exists())
+      assertThrows[IOException](Utils.createDirectory(testDirPath, "scenario5"))
+      assert(testDir.setExecutable(true))
+    }
 
     // The following 3 scenarios are only for the method: createDirectory(File)
     // 6. Symbolic link

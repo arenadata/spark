@@ -182,6 +182,7 @@ abstract class FsHistoryProviderSuite extends SparkFunSuite with Matchers with P
   test("SPARK-3697: ignore files that cannot be read.") {
     // setReadable(...) does not work on Windows. Please refer JDK-6728842.
     assume(!Utils.isWindows)
+    assume(System.getProperty("user.name") != "root")
 
     class TestFsHistoryProvider extends FsHistoryProvider(createTestConf()) {
       var doMergeApplicationListingCall = 0
