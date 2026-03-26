@@ -48,11 +48,13 @@ public class JavaUtilsSuite {
     assertTrue(JavaUtils.createDirectory(testDirPath, "scenario3").exists());
     assertTrue(testDir.setReadable(true));
 
-    // 4. The parent directory cannot write
-    assertTrue(testDir.canWrite());
-    assertTrue(testDir.setWritable(false));
-    assertThrows(IOException.class,
-      () -> JavaUtils.createDirectory(testDirPath, "scenario4"));
-    assertTrue(testDir.setWritable(true));
+    if (!System.getProperty("user.name").equals("root")) {
+      // 4. The parent directory cannot write
+      assertTrue(testDir.canWrite());
+      assertTrue(testDir.setWritable(false));
+      assertThrows(IOException.class,
+              () -> JavaUtils.createDirectory(testDirPath, "scenario4"));
+      assertTrue(testDir.setWritable(true));
+    }
   }
 }
