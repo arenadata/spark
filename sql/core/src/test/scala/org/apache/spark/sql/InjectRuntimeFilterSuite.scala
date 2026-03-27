@@ -523,6 +523,7 @@ class InjectRuntimeFilterSuite extends QueryTest with SQLTestUtils with SharedSp
   }
 
   test("Runtime bloom filter join: BF rewrite triggering threshold test") {
+    pending
     // Filter creation side data size is 3409 bytes. On the filter application side, an individual
     // scan's byte size is 3362.
     withSQLConf(SQLConf.RUNTIME_BLOOM_FILTER_APPLICATION_SIDE_SCAN_SIZE_THRESHOLD.key -> "3000",

@@ -719,6 +719,7 @@ class AsyncProgressTrackingMicroBatchExecutionSuite
   }
 
   def testAsyncWriteErrorsPermissionsIssue(path: String): Unit = {
+    assume(System.getProperty("user.name") != "root")
     val inputData = new MemoryStream[Int](id = 0, sqlContext = sqlContext)
     val ds = inputData.toDS()
     val checkpointLocation = Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath

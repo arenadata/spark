@@ -491,7 +491,9 @@ class SparkSession(SparkConversionMixin):
                 session = SparkSession._instantiatedSession
                 if session is None or session._sc._jsc is None:
                     sparkConf = SparkConf()
-                    filteredProps = self._filter_blacklisted_properties(dict(SparkConf().getAll()), self._options)
+                    filteredProps = self._filter_blacklisted_properties(
+                        dict(SparkConf().getAll()), self._options
+                    )
                     for key, value in filteredProps.items():
                         sparkConf.set(key, value)
                     # This SparkContext may be an existing one.
@@ -505,7 +507,6 @@ class SparkSession(SparkConversionMixin):
                     ).applyModifiableSettings(session._jsparkSession, self._options)
                 return session
 
-
         def _filter_blacklisted_properties(self, default_options, options):
             """
             Filters out blacklisted properties from the given configuration options.
@@ -515,12 +516,14 @@ class SparkSession(SparkConversionMixin):
             :return: A filtered dictionary excluding blacklisted properties.
             """
             blacklist_key = "spark.sql.security.confblacklist"
-            # Extract blacklisted properties from default options, defaulting to an empty string if not present
+            # Extract blacklisted properties from default options, defaulting to an empty string
+            # if not present
             blacklisted_properties = set(default_options.get(blacklist_key, "").split(","))
             # Optionally include the blacklist key itself if needed
             complete_blacklist = blacklisted_properties | {blacklist_key}
             # Filter options to exclude blacklisted properties
             return {k: v for k, v in options.items() if k not in complete_blacklist}
+
         # Spark Connect-specific API
         def create(self) -> "SparkSession":
             """Creates a new SparkSession. Can only be used in the context of Spark Connect
