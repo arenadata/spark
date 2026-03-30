@@ -331,6 +331,15 @@ def run_scala_tests_maven(test_modules, test_profiles):
 
         mvn_test_goals.append(",".join(mvn_modules))
 
+        build_profiles_and_goals = test_profiles + ["-am", "test", "-DskipTests"]
+
+        print(
+            "[info] Running Spark compile for tests using Maven with these arguments: ",
+            " ".join(build_profiles_and_goals),
+        )
+
+        exec_maven(build_profiles_and_goals)
+
     profiles_and_goals = test_profiles + mvn_test_goals
 
     print(
