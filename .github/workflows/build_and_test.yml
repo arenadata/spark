@@ -216,6 +216,7 @@ jobs:
       SKIP_UNIDOC: true
       SKIP_MIMA: true
       SKIP_PACKAGING: true
+      SCALA_PROFILE: scala2.13
     steps:
     - name: Checkout Spark repository
       uses: actions/checkout@v3
@@ -684,6 +685,8 @@ jobs:
       with:
         distribution: temurin
         java-version: 17
+    - name: Set scala version
+      run: ./dev/change-scala-version.sh 2.13
     - name: License test
       run: ./dev/check-license
     - name: Dependencies test
@@ -815,11 +818,12 @@ jobs:
         java-version: ${{ matrix.java }}
     - name: Build with Maven
       run: |
+        ./dev/change-scala-version.sh 2.13
         export MAVEN_OPTS="-Xss64m -Xmx2g -XX:ReservedCodeCacheSize=1g -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN"
         export MAVEN_CLI_OPTS="--no-transfer-progress"
         export JAVA_VERSION=${{ matrix.java }}
         # It uses Maven's 'install' intentionally, see https://github.com/apache/spark/pull/26414.
-        ./build/mvn $MAVEN_CLI_OPTS -DskipTests -Pyarn -Pmesos -Pkubernetes -Pvolcano -Phive -Phive-thriftserver -Phadoop-cloud -Djava.version=${JAVA_VERSION/-ea} install
+        ./build/mvn $MAVEN_CLI_OPTS -DskipTests -Pyarn -Pmesos -Pkubernetes -Pvolcano -Phive -Phive-thriftserver -Phadoop-cloud -Pscala-2.13 -Djava.version=${JAVA_VERSION/-ea} install
         rm -rf ~/.m2/repository/org/apache/spark
 
   scala-213:
@@ -928,6 +932,8 @@ jobs:
     - name: Build tpcds-kit
       if: steps.cache-tpcds-sf-1.outputs.cache-hit != 'true'
       run: cd tpcds-kit/tools && make OS=LINUX
+    - name: Switch scala version
+      run: ./dev/change-scala-version.sh 2.13
     - name: Generate TPC-DS (SF=1) table data
       if: steps.cache-tpcds-sf-1.outputs.cache-hit != 'true'
       run: build/sbt "sql/Test/runMain org.apache.spark.sql.GenTPCDSData --dsdgenDir `pwd`/tpcds-kit/tools --location `pwd`/tpcds-sf-1 --scaleFactor 1 --numPartitions 1 --overwrite"
@@ -1025,6 +1031,8 @@ jobs:
         distribution: temurin
         java-version: 17
     - name: Run tests
+      env:
+        SCALA_PROFILE: scala2.13
       run: |
         export MAVEN_OPTS="-Xss64m -Xmx2g -XX:ReservedCodeCacheSize=1g -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN"
         export MAVEN_ARGS="--no-transfer-progress"
@@ -1101,6 +1109,7 @@ jobs:
           kubectl describe node
       - name: Run Spark on K8S integration test (With driver cpu 0.5, executor cpu 0.2 limited)
         run: |
+          ./dev/change-scala-version.sh 2.13
           # Prepare PV test
           PVC_TMP_DIR=$(mktemp -d)
           export PVC_TESTS_HOST_PATH=$PVC_TMP_DIR
@@ -1109,7 +1118,10 @@ jobs:
           kubectl create clusterrolebinding serviceaccounts-cluster-admin --clusterrole=cluster-admin --group=system:serviceaccounts || true
           kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/v1.7.0/installer/volcano-development.yaml || true
           eval $(minikube docker-env)
-          build/sbt -Psparkr -Pkubernetes -Pvolcano -Pkubernetes-integration-tests -Dspark.kubernetes.test.volcanoMaxConcurrencyJobNum=1 -Dtest.exclude.tags=local "kubernetes-integration-tests/test"
+          export MAVEN_OPTS="-Xss64m -Xmx2g -XX:ReservedCodeCacheSize=1g -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN"
+          export MAVEN_ARGS="--no-transfer-progress"
+          ./build/mvn -Pscala-2.13 -Psparkr -Pkubernetes -Pvolcano -Pkubernetes-integration-tests -Dspark.kubernetes.test.volcanoMaxConcurrencyJobNum=1 -Dtest.exclude.tags=local -pl resource-managers/kubernetes/integration-tests -am clean package -DskipTests
+          ./build/mvn -Pscala-2.13 -Psparkr -Pkubernetes -Pvolcano -Pkubernetes-integration-tests -Dspark.kubernetes.test.volcanoMaxConcurrencyJobNum=1 -Dtest.exclude.tags=local -pl resource-managers/kubernetes/integration-tests test
       - name: Upload Spark on K8S integration tests log files
         if: failure()
         uses: actions/upload-artifact@v4
