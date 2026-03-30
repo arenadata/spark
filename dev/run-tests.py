@@ -236,7 +236,7 @@ def get_hadoop_profiles(hadoop_version):
 def build_spark_maven(extra_profiles):
     # Enable all of the profiles for the build:
     build_profiles = extra_profiles + modules.root.build_profile_flags
-    mvn_goals = ["clean", "package", "-DskipTests"]
+    mvn_goals = ["clean", "install", "-DskipTests"]
     profiles_and_goals = build_profiles + mvn_goals
 
     print("[info] Building Spark using Maven with these arguments: ", " ".join(profiles_and_goals))
@@ -330,15 +330,6 @@ def run_scala_tests_maven(test_modules, test_profiles):
         mvn_test_goals.append("-pl")
 
         mvn_test_goals.append(",".join(mvn_modules))
-
-        build_profiles_and_goals = test_profiles + ["-am", "test", "-DskipTests"]
-
-        print(
-            "[info] Running Spark compile for tests using Maven with these arguments: ",
-            " ".join(build_profiles_and_goals),
-        )
-
-        exec_maven(build_profiles_and_goals)
 
     profiles_and_goals = test_profiles + mvn_test_goals
 
