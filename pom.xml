@@ -3032,7 +3032,6 @@
               <arg>-target:jvm-1.8</arg>
               <arg>-Xfatal-warnings</arg>
               <arg>-Ywarn-unused:imports</arg>
-              <arg>-P:silencer:globalFilters=.*deprecated.*</arg>
             </args>
             <jvmArgs>
               <jvmArg>-Xss128m</jvmArg>
