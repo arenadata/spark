@@ -150,10 +150,10 @@ jobs:
         modules:
           - >-
             core, unsafe, kvstore, avro,
-            network-common, network-shuffle, repl, launcher,
+            network-common, network-shuffle, launcher,
             examples, sketch, graphx
           - >-
-            catalyst, hive-thriftserver
+            repl, catalyst, hive-thriftserver
           - >-
             streaming, sql-kafka-0-10, streaming-kafka-0-10,
             mllib-local, mllib,
