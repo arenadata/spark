@@ -40,6 +40,7 @@ class Module(object):
         build_profile_flags=(),
         environ=None,
         sbt_test_goals=(),
+        mvn_modules=(),
         python_test_goals=(),
         excluded_python_implementations=(),
         test_tags=(),
@@ -60,6 +61,7 @@ class Module(object):
         :param environ: A dict of environment variables that should be set when files in this
             module are changed.
         :param sbt_test_goals: A set of SBT test goals for testing this module.
+        :param mvn_modules: A set of corresponding maven modules.
         :param python_test_goals: A set of Python test goals for testing this module.
         :param excluded_python_implementations: A set of Python implementations that are not
             supported by this module's Python components. The values in this set should match
@@ -73,6 +75,7 @@ class Module(object):
         self.dependencies = dependencies
         self.source_file_prefixes = source_file_regexes
         self.sbt_test_goals = sbt_test_goals
+        self.mvn_modules = mvn_modules
         self.build_profile_flags = build_profile_flags
         self.environ = environ or {}
         self.python_test_goals = python_test_goals
@@ -111,6 +114,9 @@ tags = Module(
     source_file_regexes=[
         "common/tags/",
     ],
+    mvn_modules=[
+        "common/tags",
+    ],
 )
 
 utils = Module(
@@ -118,6 +124,9 @@ utils = Module(
     dependencies=[tags],
     source_file_regexes=[
         "common/utils/",
+    ],
+    mvn_modules=[
+        "common/utils",
     ],
 )
 
@@ -130,6 +139,9 @@ kvstore = Module(
     sbt_test_goals=[
         "kvstore/test",
     ],
+    mvn_modules=[
+        "common/kvstore",
+    ],
 )
 
 network_common = Module(
@@ -140,6 +152,9 @@ network_common = Module(
     ],
     sbt_test_goals=[
         "network-common/test",
+    ],
+    mvn_modules=[
+        "common/network-common",
     ],
 )
 
@@ -152,6 +167,9 @@ network_shuffle = Module(
     sbt_test_goals=[
         "network-shuffle/test",
     ],
+    mvn_modules=[
+        "common/network-shuffle",
+    ],
 )
 
 unsafe = Module(
@@ -162,6 +180,9 @@ unsafe = Module(
     ],
     sbt_test_goals=[
         "unsafe/test",
+    ],
+    mvn_modules=[
+        "common/unsafe",
     ],
 )
 
@@ -174,6 +195,9 @@ launcher = Module(
     sbt_test_goals=[
         "launcher/test",
     ],
+    mvn_modules=[
+        "launcher",
+    ],
 )
 
 sketch = Module(
@@ -183,6 +207,9 @@ sketch = Module(
         "common/sketch/",
     ],
     sbt_test_goals=["sketch/test"],
+    mvn_modules=[
+        "common/sketch",
+    ],
 )
 
 core = Module(
@@ -194,6 +221,9 @@ core = Module(
     sbt_test_goals=[
         "core/test",
     ],
+    mvn_modules=[
+        "core",
+    ],
 )
 
 api = Module(
@@ -201,6 +231,9 @@ api = Module(
     dependencies=[utils, unsafe],
     source_file_regexes=[
         "sql/api/",
+    ],
+    mvn_modules=[
+        "sql/api",
     ],
 )
 
@@ -212,6 +245,9 @@ catalyst = Module(
     ],
     sbt_test_goals=[
         "catalyst/test",
+    ],
+    mvn_modules=[
+        "sql/catalyst",
     ],
     environ=None
     if "GITHUB_ACTIONS" not in os.environ
@@ -226,6 +262,9 @@ sql = Module(
     ],
     sbt_test_goals=[
         "sql/test",
+    ],
+    mvn_modules=[
+        "sql/core",
     ],
     environ=None
     if "GITHUB_ACTIONS" not in os.environ
@@ -245,6 +284,9 @@ hive = Module(
     sbt_test_goals=[
         "hive/test",
     ],
+    mvn_modules=[
+        "sql/hive",
+    ],
     test_tags=["org.apache.spark.tags.ExtendedHiveTest"],
 )
 
@@ -256,6 +298,9 @@ repl = Module(
     ],
     sbt_test_goals=[
         "repl/test",
+    ],
+    mvn_modules=[
+        "repl",
     ],
 )
 
@@ -272,6 +317,9 @@ hive_thriftserver = Module(
     sbt_test_goals=[
         "hive-thriftserver/test",
     ],
+    mvn_modules=[
+        "sql/hive-thriftserver",
+    ],
 )
 
 avro = Module(
@@ -282,6 +330,9 @@ avro = Module(
     ],
     sbt_test_goals=[
         "avro/test",
+    ],
+    mvn_modules=[
+        "connector/avro",
     ],
 )
 
@@ -294,6 +345,9 @@ sql_kafka = Module(
     sbt_test_goals=[
         "sql-kafka-0-10/test",
     ],
+    mvn_modules=[
+        "connector/kafka-0-10-sql",
+    ],
 )
 
 protobuf = Module(
@@ -304,6 +358,9 @@ protobuf = Module(
     ],
     sbt_test_goals=[
         "protobuf/test",
+    ],
+    mvn_modules=[
+        "connector/protobuf",
     ],
 )
 
@@ -318,6 +375,11 @@ connect = Module(
         "connect/test",
         "connect-client-jvm/test",
     ],
+    mvn_modules=[
+        "connector/connect/server",
+        "connector/connect/common",
+        "connector/connect/client/jvm",
+    ],
 )
 
 graphx = Module(
@@ -327,6 +389,9 @@ graphx = Module(
         "graphx/",
     ],
     sbt_test_goals=["graphx/test"],
+    mvn_modules=[
+        "graphx",
+    ],
 )
 
 streaming = Module(
@@ -337,6 +402,9 @@ streaming = Module(
     ],
     sbt_test_goals=[
         "streaming/test",
+    ],
+    mvn_modules=[
+        "streaming",
     ],
 )
 
@@ -359,6 +427,9 @@ streaming_kinesis_asl = Module(
     sbt_test_goals=[
         "streaming-kinesis-asl/test",
     ],
+    mvn_modules=[
+        "connector/kinesis-asl",
+    ],
 )
 
 
@@ -372,6 +443,11 @@ streaming_kafka_0_10 = Module(
         "connector/kafka-0-10-token-provider",
     ],
     sbt_test_goals=["streaming-kafka-0-10/test", "token-provider-kafka-0-10/test"],
+    mvn_modules=[
+        "connector/kafka-0-10",
+        "connector/kafka-0-10-assembly",
+        "connector/kafka-0-10-token-provider",
+    ],
 )
 
 
@@ -383,6 +459,9 @@ mllib_local = Module(
     ],
     sbt_test_goals=[
         "mllib-local/test",
+    ],
+    mvn_modules=[
+        "mllib-local",
     ],
 )
 
@@ -397,6 +476,9 @@ mllib = Module(
     sbt_test_goals=[
         "mllib/test",
     ],
+    mvn_modules=[
+        "mllib",
+    ],
 )
 
 
@@ -408,6 +490,9 @@ examples = Module(
     ],
     sbt_test_goals=[
         "examples/test",
+    ],
+    mvn_modules=[
+        "examples",
     ],
 )
 
@@ -1116,6 +1201,10 @@ yarn = Module(
         "yarn/test",
         "network-yarn/test",
     ],
+    mvn_modules=[
+        "resource-managers/yarn",
+        "common/network-yarn",
+    ],
     test_tags=["org.apache.spark.tags.ExtendedYarnTest"],
 )
 
@@ -1125,6 +1214,9 @@ mesos = Module(
     source_file_regexes=["resource-managers/mesos/"],
     build_profile_flags=["-Pmesos"],
     sbt_test_goals=["mesos/test"],
+    mvn_modules=[
+        "resource-managers/mesos",
+    ],
 )
 
 kubernetes = Module(
@@ -1133,6 +1225,9 @@ kubernetes = Module(
     source_file_regexes=["resource-managers/kubernetes"],
     build_profile_flags=["-Pkubernetes", "-Pvolcano"],
     sbt_test_goals=["kubernetes/test"],
+    mvn_modules=[
+        "resource-managers/kubernetes/core",
+    ],
 )
 
 hadoop_cloud = Module(
@@ -1141,6 +1236,9 @@ hadoop_cloud = Module(
     source_file_regexes=["hadoop-cloud"],
     build_profile_flags=["-Phadoop-cloud"],
     sbt_test_goals=["hadoop-cloud/test"],
+    mvn_modules=[
+        "hadoop-cloud",
+    ],
 )
 
 spark_ganglia_lgpl = Module(
@@ -1148,6 +1246,9 @@ spark_ganglia_lgpl = Module(
     dependencies=[],
     build_profile_flags=["-Pspark-ganglia-lgpl"],
     source_file_regexes=[
+        "connector/spark-ganglia-lgpl",
+    ],
+    mvn_modules=[
         "connector/spark-ganglia-lgpl",
     ],
 )
@@ -1158,6 +1259,9 @@ docker_integration_tests = Module(
     build_profile_flags=["-Pdocker-integration-tests"],
     source_file_regexes=["connector/docker-integration-tests"],
     sbt_test_goals=["docker-integration-tests/test"],
+    mvn_modules=[
+        "connector/docker-integration-tests",
+    ],
     environ=None
     if "GITHUB_ACTIONS" not in os.environ
     else {"ENABLE_DOCKER_INTEGRATION_TESTS": "1"},

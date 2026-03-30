@@ -403,6 +403,7 @@ jobs:
       SKIP_MIMA: true
       SKIP_PACKAGING: true
       METASPACE_SIZE: 1g
+      SCALA_PROFILE: scala2.13
     steps:
     - name: Checkout Spark repository
       uses: actions/checkout@v3
@@ -516,6 +517,7 @@ jobs:
       SPARK_LOCAL_IP: localhost
       SKIP_MIMA: true
       SKIP_PACKAGING: true
+      SCALA_PROFILE: scala2.13
     steps:
     - name: Checkout Spark repository
       uses: actions/checkout@v3
@@ -1120,7 +1122,7 @@ jobs:
           eval $(minikube docker-env)
           export MAVEN_OPTS="-Xss64m -Xmx2g -XX:ReservedCodeCacheSize=1g -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN"
           export MAVEN_ARGS="--no-transfer-progress"
-          ./build/mvn -Pscala-2.13 -Psparkr -Pkubernetes -Pvolcano -Pkubernetes-integration-tests -Dspark.kubernetes.test.volcanoMaxConcurrencyJobNum=1 -Dtest.exclude.tags=local -pl resource-managers/kubernetes/integration-tests -am clean package -DskipTests
+          ./build/mvn -Pscala-2.13 -Psparkr -Pkubernetes -Pvolcano -Pkubernetes-integration-tests  -Dspark.kubernetes.test.volcanoMaxConcurrencyJobNum=1 -Dtest.exclude.tags=local -pl resource-managers/kubernetes/integration-tests -am clean package -DskipTests
           ./build/mvn -Pscala-2.13 -Psparkr -Pkubernetes -Pvolcano -Pkubernetes-integration-tests -Dspark.kubernetes.test.volcanoMaxConcurrencyJobNum=1 -Dtest.exclude.tags=local -pl resource-managers/kubernetes/integration-tests test
       - name: Upload Spark on K8S integration tests log files
         if: failure()
