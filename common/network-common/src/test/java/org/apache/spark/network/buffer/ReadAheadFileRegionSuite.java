@@ -27,14 +27,12 @@ import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
 
 import org.apache.spark.network.util.ByteArrayWritableChannel;
 
-@Ignore("Waiting for fix")
 public class ReadAheadFileRegionSuite {
 
   private File testFile;

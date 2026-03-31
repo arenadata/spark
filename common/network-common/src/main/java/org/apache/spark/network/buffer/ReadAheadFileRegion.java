@@ -80,13 +80,6 @@ public class ReadAheadFileRegion extends AbstractFileRegion {
     this.transferred = 0;
     this.eofSeen = false;
 
-    // Set the channel position to the requested offset
-    try {
-      this.fileChannel.position(offset);
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to set file channel position to " + offset, e);
-    }
-
     getOrCreatePool(poolSize).submit(this::readAhead);
   }
 
