@@ -149,11 +149,11 @@ jobs:
         # Note that the modules below are from sparktestsupport/modules.py.
         modules:
           - >-
-            core, unsafe, kvstore, avro,
+            core, unsafe, kvstore,
             network-common, network-shuffle, launcher,
             examples, sketch, graphx
           - >-
-            repl, catalyst, hive-thriftserver
+            avro, repl, catalyst, hive-thriftserver
           - >-
             streaming, sql-kafka-0-10, streaming-kafka-0-10,
             mllib-local, mllib,
