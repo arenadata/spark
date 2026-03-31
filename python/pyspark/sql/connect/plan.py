@@ -93,10 +93,10 @@ class LogicalPlan:
         else:
             return cast(Column, col).to_plan(session)
 
-    def plan(self, session: "SparkConnectClient") -> proto.Relation:
+    def plan(self, session: "SparkConnectClient") -> proto.Relation:  # type: ignore[empty-body]
         ...
 
-    def command(self, session: "SparkConnectClient") -> proto.Command:
+    def command(self, session: "SparkConnectClient") -> proto.Command:  # type: ignore[empty-body]
         ...
 
     def _verify(self, session: "SparkConnectClient") -> bool:

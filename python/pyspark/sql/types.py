@@ -1667,9 +1667,9 @@ def _infer_schema(
 
     elif isinstance(row, (tuple, list)):
         if hasattr(row, "__fields__"):  # Row
-            items = zip(row.__fields__, tuple(row))  # type: ignore[union-attr]
+            items = zip(row.__fields__, tuple(row))
         elif hasattr(row, "_fields"):  # namedtuple
-            items = zip(row._fields, tuple(row))  # type: ignore[union-attr]
+            items = zip(row._fields, tuple(row))
         else:
             if names is None:
                 names = ["_%d" % i for i in range(1, len(row) + 1)]

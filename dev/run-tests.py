@@ -316,6 +316,7 @@ def detect_binary_inop_with_mima(extra_profiles):
     )
     run_cmd([os.path.join(SPARK_HOME, "dev", "mima"), profiles])
 
+
 def run_scala_tests_maven(test_modules, test_profiles):
 
     mvn_test_goals = ["test", "--fail-at-end"]

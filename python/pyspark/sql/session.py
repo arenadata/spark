@@ -507,7 +507,9 @@ class SparkSession(SparkConversionMixin):
                     ).applyModifiableSettings(session._jsparkSession, self._options)
                 return session
 
-        def _filter_blacklisted_properties(self, default_options, options):
+        def _filter_blacklisted_properties(
+            self, default_options: Dict[str, str], options: Dict[str, str]
+        ) -> Dict[str, str]:
             """
             Filters out blacklisted properties from the given configuration options.
 

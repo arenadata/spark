@@ -752,7 +752,7 @@ class TorchDistributor(Distributor):
 
     def _run_distributed_training(
         self,
-        framework_wrapper_fn: Callable,
+        framework_wrapper_fn: Optional[Callable],
         train_object: Union[Callable, str],
         run_pytorch_file_fn: Optional[Callable],
         spark_dataframe: Optional["DataFrame"],
