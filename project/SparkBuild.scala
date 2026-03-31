@@ -1126,10 +1126,8 @@ object ExcludedDependencies {
     excludeDependencies ++= Seq(
       ExclusionRule(organization = "com.sun.jersey"),
       ExclusionRule("javax.servlet", "javax.servlet-api"),
-      ExclusionRule("javax.servlet", "servlet-api"),
       ExclusionRule(organization = "ch.qos.logback"),
-      ExclusionRule("javax.ws.rs", "jsr311-api"),
-      ExclusionRule("org.eclipse.jetty.aggregate", "jetty-all"))
+      ExclusionRule("javax.ws.rs", "jsr311-api"))
   )
 }
 
@@ -1254,7 +1252,6 @@ object YARN {
     excludeDependencies --= Seq(
       ExclusionRule(organization = "com.sun.jersey"),
       ExclusionRule("javax.servlet", "javax.servlet-api"),
-      ExclusionRule("javax.servlet", "servlet-api"),
       ExclusionRule("javax.ws.rs", "jsr311-api")),
     Compile / unmanagedResources :=
       (Compile / unmanagedResources).value.filter(!_.getName.endsWith(s"$propFileName")),
