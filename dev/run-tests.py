@@ -530,6 +530,8 @@ def main():
 
     extra_profiles = get_hadoop_profiles(hadoop_version) + get_scala_profiles(scala_version)
 
+    extra_profiles = extra_profiles + ["-Dguava.version=32.0.1-jre"]
+
     print(
         "[info] Using build tool",
         build_tool,
