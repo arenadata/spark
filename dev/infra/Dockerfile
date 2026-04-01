@@ -33,7 +33,6 @@ RUN update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java
 
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.9
 
-RUN add-apt-repository ppa:pypy/ppa
 RUN apt update
 RUN $APT_INSTALL gfortran libopenblas-dev liblapack-dev
 RUN $APT_INSTALL build-essential
