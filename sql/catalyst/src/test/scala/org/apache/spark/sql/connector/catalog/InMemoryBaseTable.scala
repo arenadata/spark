@@ -311,7 +311,13 @@ abstract class InMemoryBaseTable(
     private var _pushedFilters: Array[Filter] = Array.empty
 
     override def build: Scan = {
-      val scan = InMemoryBatchScan(data.map(_.asInstanceOf[InputPartition]), schema, tableSchema)
+      val scan = if (InMemoryBaseTable.this.ordering.nonEmpty) {
+        new InMemoryBatchScanWithOrdering(
+          data.map(_.asInstanceOf[InputPartition]), schema, tableSchema)
+      } else {
+        InMemoryBatchScan(
+          data.map(_.asInstanceOf[InputPartition]), schema, tableSchema)
+      }
       if (evaluableFilters.nonEmpty) {
         scan.filter(evaluableFilters)
       }
@@ -469,6 +475,14 @@ abstract class InMemoryBaseTable(
         }
       }
     }
+  }
+
+  private class InMemoryBatchScanWithOrdering(
+      data: Seq[InputPartition],
+      readSchema: StructType,
+      tableSchema: StructType)
+    extends InMemoryBatchScan(data, readSchema, tableSchema) with SupportsReportOrdering {
+    override def outputOrdering(): Array[SortOrder] = InMemoryBaseTable.this.ordering
   }
 
   abstract class InMemoryWriterBuilder() extends SupportsTruncate with SupportsDynamicOverwrite
