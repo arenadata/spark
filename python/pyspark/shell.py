@@ -48,8 +48,18 @@ if getattr(builtins, "__IPYTHON__", False):
 
 if is_remote():
     try:
-        # Creates pyspark.sql.connect.SparkSession.
-        spark = SparkSession.builder.getOrCreate()
+        if os.environ.get("KYUUBI_AUTH"):
+            from kyuubi_spark_connect import KyuubiChannelBuilder
+            from pyspark.sql.connect.session import SparkSession as ConnectSparkSession
+            _kyuubi_builder = KyuubiChannelBuilder(
+                os.environ["SPARK_REMOTE"],
+                auth=os.environ.get("KYUUBI_AUTH", "kerberos"),
+                username=os.environ.get("KYUUBI_USERNAME"),
+                password=os.environ.get("KYUUBI_PASSWORD"))
+            spark = ConnectSparkSession(connection=_kyuubi_builder)
+        else:
+            # Creates pyspark.sql.connect.SparkSession.
+            spark = SparkSession.builder.getOrCreate()
     except Exception:
         import sys
         import traceback
