@@ -49,7 +49,7 @@ if getattr(builtins, "__IPYTHON__", False):
 if is_remote():
     try:
         if os.environ.get("KYUUBI_AUTH"):
-            from kyuubi_spark_connect import KyuubiChannelBuilder
+            from pyspark.kyuubi.kyuubi_spark_connect import KyuubiChannelBuilder
             from pyspark.sql.connect.session import SparkSession as ConnectSparkSession
             _kyuubi_builder = KyuubiChannelBuilder(
                 os.environ["SPARK_REMOTE"],
