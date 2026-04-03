@@ -153,9 +153,7 @@ jobs:
             network-common, network-shuffle, launcher,
             examples, sketch, graphx
           - >-
-            avro, repl, catalyst
-          - >-
-            hive-thriftserver
+            avro, repl, catalyst, hive-thriftserver
           - >-
             streaming, sql-kafka-0-10, streaming-kafka-0-10,
             mllib-local, mllib,
@@ -166,11 +164,6 @@ jobs:
         excluded-tags: [""]
         comment: [""]
         include:
-          # hive-thriftserver test check java 11
-          - modules: avro, repl, catalyst, hive-thriftserver
-            java: 11
-            hadoop: ${{ inputs.hadoop }}
-            hive: hive2.3
           # Hive tests
           - modules: hive
             java: ${{ inputs.java }}
