@@ -5,7 +5,7 @@ KyuubiTokenClient  — obtains/renews/revokes session token via gRPC.
 KyuubiChannelBuilder — PySpark ChannelBuilder that manages tokens.
 
 Usage:
-    from kyuubi_spark_connect import KyuubiChannelBuilder
+    from pyspark.kyuubi.kyuubi_spark_connect import KyuubiChannelBuilder
     from pyspark.sql.connect.session import SparkSession
 
     builder = KyuubiChannelBuilder("sc://host:10199/;use_ssl=true", auth="kerberos")
