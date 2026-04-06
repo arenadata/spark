@@ -319,7 +319,7 @@ def detect_binary_inop_with_mima(extra_profiles):
 
 def run_scala_tests_maven(test_modules, test_profiles):
 
-    mvn_test_goals = ["-X", "test", "--fail-at-end"]
+    mvn_test_goals = ["test", "--fail-at-end"]
 
     if not any(m.name == modules.root.name for m in test_modules):
 
