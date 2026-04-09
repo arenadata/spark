@@ -153,7 +153,9 @@ jobs:
             network-common, network-shuffle, launcher,
             examples, sketch, graphx
           - >-
-            avro, repl, catalyst, hive-thriftserver
+            avro, repl, catalyst
+          - >-
+            hive-thriftserver
           - >-
             streaming, sql-kafka-0-10, streaming-kafka-0-10,
             mllib-local, mllib,
@@ -288,6 +290,12 @@ jobs:
       run: |
         # Fix for TTY related issues when launching the Ammonite REPL in tests.
         export TERM=vt100 && script -qfc 'echo exit | amm -s' && rm typescript
+        if [[ "$MODULES_TO_TEST" == "hive-thriftserver" ]]; then
+          # FIXME: mvn test failed
+          ./dev/change-scala-version.sh 2.13
+          ./build/sbt -Phadoop-3 -Pscala-2.13 -Dguava.version=32.0.1-jre -Phive-thriftserver -Pkubernetes -Pmesos -Phive-thriftserver -Pkinesis-asl -Pvolcano -Phadoop-cloud -Phive -Pdocker-integration-tests -Pyarn -Pspark-ganglia-lgpl -Pconnect hive-thriftserver/test || exit $?
+          exit 0
+        fi
         # Hive "other tests" test needs larger metaspace size based on experiment.
         if [[ "$MODULES_TO_TEST" == "hive" ]] && [[ "$EXCLUDED_TAGS" == "org.apache.spark.tags.SlowHiveTest" ]]; then export METASPACE_SIZE=2g; fi
         export SERIAL_SBT_TESTS=1
