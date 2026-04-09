@@ -594,7 +594,7 @@ class SparkMetadataOperationSuite extends HiveThriftServer2TestBase {
       assert(metaData.getDriverVersion === HiveVersionInfo.getVersion)
       assert(metaData.getDatabaseMajorVersion === VersionUtils.majorVersion(SPARK_VERSION))
       assert(metaData.getDatabaseMinorVersion === VersionUtils.minorVersion(SPARK_VERSION))
-      assert(metaData.getIdentifierQuoteString === " ",
+      assert(metaData.getIdentifierQuoteString === "`",
         "This method returns a space \" \" if identifier quoting is not supported")
       assert(metaData.getNumericFunctions === "")
       assert(metaData.getStringFunctions === "")
