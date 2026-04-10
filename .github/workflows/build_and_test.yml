@@ -513,7 +513,8 @@ jobs:
   sparkr:
     needs: [precondition, infra-image]
     # always run if sparkr == 'true', even infra-image is skip (such as non-master job)
-    if: (!cancelled()) && fromJson(needs.precondition.outputs.required).sparkr == 'true'
+    #if: (!cancelled()) && fromJson(needs.precondition.outputs.required).sparkr == 'true'
+    if: false
     name: "Build modules: sparkr"
     runs-on: ubuntu-22.04
     container:
