@@ -649,7 +649,7 @@ class SparkMetadataOperationSuite extends HiveThriftServer2TestBase {
       assert(metaData.supportsResultSetType(ResultSet.TYPE_FORWARD_ONLY))
       assert(metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_INSENSITIVE))
       assert(metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_SENSITIVE))
-      assert(!metaData.supportsBatchUpdates)
+      assert(metaData.supportsBatchUpdates)
       assert(!metaData.getUDTs(",", "%", "%", null).next())
       assert(!metaData.supportsSavepoints)
       assert(!metaData.supportsResultSetHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT))
