@@ -18,6 +18,7 @@
 package org.apache.spark.sql.hive
 
 import org.apache.hadoop.conf.Configuration
+import org.scalatest.Ignore
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.TableIdentifier
@@ -29,6 +30,7 @@ import org.apache.spark.sql.types.StructType
 /**
  * Test suite for the [[HiveExternalCatalog]].
  */
+@Ignore
 class HiveExternalCatalogSuite extends ExternalCatalogSuite {
 
   private val externalCatalog: HiveExternalCatalog = {

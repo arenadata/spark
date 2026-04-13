@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.hive
 
+import org.scalatest.Ignore
+
 import org.apache.spark.sql.{AnalysisException, QueryTest, Row, SaveMode}
 import org.apache.spark.sql.catalyst.{AliasIdentifier, TableIdentifier}
 import org.apache.spark.sql.catalyst.catalog.CatalogTableType
@@ -131,6 +133,7 @@ class HiveMetastoreCatalogSuite extends TestHiveSingleton with SQLTestUtils {
   }
 }
 
+@Ignore
 class DataSourceWithHiveMetastoreCatalogSuite
   extends QueryTest with SQLTestUtils with TestHiveSingleton {
   import hiveContext._

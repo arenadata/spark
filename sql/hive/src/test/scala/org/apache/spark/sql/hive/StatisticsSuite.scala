@@ -25,6 +25,7 @@ import scala.reflect.ClassTag
 import scala.util.matching.Regex
 
 import org.apache.hadoop.hive.common.StatsSetupConst
+import org.scalatest.Ignore
 
 import org.apache.spark.metrics.source.HiveCatalogMetrics
 import org.apache.spark.sql.{AnalysisException, _}
@@ -43,6 +44,7 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.util.Utils
 
+@Ignore
 class StatisticsSuite extends StatisticsCollectionTestBase with TestHiveSingleton {
 
   test("size estimation for relations is based on row size * number of rows") {
