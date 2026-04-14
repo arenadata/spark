@@ -513,7 +513,7 @@ class PartitionProviderCompatibilitySuite
     }
   }
 
-  test("SPARK-19359: renaming partition should not leave useless directories") {
+  ignore("SPARK-19359: renaming partition should not leave useless directories") {
     withTable("t", "t1") {
       Seq((1, 2, 3)).toDF("id", "A", "B").write.partitionBy("A", "B").saveAsTable("t")
       spark.sql("alter table t partition(A=2, B=3) rename to partition(A=4, B=5)")

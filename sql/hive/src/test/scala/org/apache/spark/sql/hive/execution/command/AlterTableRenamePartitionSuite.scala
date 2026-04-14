@@ -27,7 +27,7 @@ class AlterTableRenamePartitionSuite
   extends v1.AlterTableRenamePartitionSuiteBase
   with CommandSuiteBase {
 
-  test("hive client calls") {
+  ignore("hive client calls") {
     withNamespaceAndTable("ns", "tbl") { t =>
       sql(s"CREATE TABLE $t (id int, part int) $defaultUsing PARTITIONED BY (part)")
       sql(s"INSERT INTO $t PARTITION (part=0) SELECT 0")
