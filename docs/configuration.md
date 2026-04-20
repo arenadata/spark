@@ -1485,6 +1485,14 @@ Apart from these, the following properties are also available, and may be useful
   <td>3.0.0</td>
 </tr>
 <tr>
+  <td><code>spark.eventLog.rolling.interval</code></td>
+  <td>None</td>
+  <td>
+    Force rolling if the previous rolling was more than interval in past.
+  </td>
+  <td>3.5.4</td>
+</tr>
+<tr>
   <td><code>spark.ui.dagGraph.retainedRootRDDs</code></td>
   <td>Int.MaxValue</td>
   <td>
