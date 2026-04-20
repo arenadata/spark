@@ -20,6 +20,7 @@ package org.apache.spark.deploy.history
 import java.io._
 import java.net.URI
 import java.nio.charset.StandardCharsets
+import java.time.{Duration, Instant}
 
 import org.apache.commons.compress.utils.CountingOutputStream
 import org.apache.hadoop.conf.Configuration
@@ -312,6 +313,10 @@ class RollingEventLogFilesWriter(
 
   private val eventFileMaxLength = sparkConf.get(EVENT_LOG_ROLLING_MAX_FILE_SIZE)
 
+  private val eventRollingInterval = sparkConf.get(EVENT_LOG_ROLLING_INTERVAL)
+
+  private var lastRollingTime: Instant = Instant.now()
+
   private val logDirForAppPath = getAppEventLogDirPath(logBaseDir, appId, appAttemptId)
 
   private var countingOutputStream: Option[CountingOutputStream] = None
@@ -342,6 +347,16 @@ class RollingEventLogFilesWriter(
       val currentLen = countingOutputStream.get.getBytesWritten
       if (currentLen + eventJson.length > eventFileMaxLength) {
         rollEventLogFile()
+      } else {
+        // if eventRollingInterval set
+        eventRollingInterval match {
+          case Some(eventRollingIntervalValue) =>
+            val elapsed = Duration.between(lastRollingTime, Instant.now())
+            if (elapsed.compareTo(Duration.ofSeconds(eventRollingIntervalValue)) >= 0) {
+              rollEventLogFile()
+            }
+          case None => true
+        }
       }
     }
 
@@ -361,6 +376,9 @@ class RollingEventLogFilesWriter(
       new PrintWriter(
         new OutputStreamWriter(countingOutputStream.get, StandardCharsets.UTF_8))
     }
+
+    // to not re-roll if rolled
+    lastRollingTime = Instant.now()
   }
 
   override def stop(): Unit = {
