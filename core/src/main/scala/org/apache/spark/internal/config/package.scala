@@ -321,6 +321,13 @@ package object config {
         "configured to be at least 2 MiB.")
       .createWithDefaultString("128m")
 
+  private[spark] val EVENT_LOG_ROLLING_INTERVAL =
+    ConfigBuilder("spark.eventLog.rolling.interval")
+      .doc("Force rolling if the previous rolling was more than interval in past.")
+      .version("3.5.4")
+      .timeConf(TimeUnit.SECONDS)
+      .createOptional
+
   private[spark] val EXECUTOR_ID =
     ConfigBuilder("spark.executor.id").version("1.2.0").stringConf.createOptional
 
