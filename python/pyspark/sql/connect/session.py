@@ -648,7 +648,15 @@ class SparkSession:
         # multi-tenancy - the remote client side cannot just stop the server and stop
         # other remote clients being used from other users.
         with SparkSession._lock:
-            self.client.close()
+            if not self.is_stopped:
+                try:
+                    self.client.release_session()
+                except Exception as e:
+                    warnings.warn(f"Failed to release Spark Connect session: {e}")
+                try:
+                    self.client.close()
+                except Exception as e:
+                    warnings.warn(f"Failed to close Spark Connect client: {e}")
             if self is SparkSession._default_session:
                 SparkSession._default_session = None
             if self is getattr(SparkSession._active_session, "session", None):
