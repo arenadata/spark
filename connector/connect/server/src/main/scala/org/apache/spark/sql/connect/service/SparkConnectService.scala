@@ -185,6 +185,27 @@ class SparkConnectService(debug: Boolean) extends AsyncService with BindableServ
   }
 
   /**
+   * Release session - it invalidates session
+   */
+  override def releaseSession(
+      request: proto.ReleaseSessionRequest,
+      responseObserver: StreamObserver[proto.ReleaseSessionResponse]): Unit = {
+    try {
+      val userId = request.getUserContext.getUserId
+      val sessionId = request.getSessionId
+      SparkConnectService.invalidateSession(userId, sessionId)
+      responseObserver.onNext(proto.ReleaseSessionResponse.newBuilder()
+        .setSessionId(sessionId).build())
+      responseObserver.onCompleted()
+    } catch
+      ErrorUtils.handleError(
+        "releaseSession",
+        observer = responseObserver,
+        userId = request.getUserContext.getUserId,
+        sessionId = request.getSessionId)
+  }
+
+  /**
    * Release reattachable execution - either part of buffered response, or finish and release all.
    */
   override def releaseExecute(

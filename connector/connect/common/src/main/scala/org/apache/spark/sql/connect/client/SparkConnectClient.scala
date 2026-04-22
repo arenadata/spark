@@ -299,6 +299,18 @@ private[sql] class SparkConnectClient(
   def registerClassFinder(finder: ClassFinder): Unit = artifactManager.registerClassFinder(finder)
 
   /**
+   * Releases the session on the server side
+   */
+  private[sql] def releaseSession(): proto.ReleaseSessionResponse = {
+    val request = proto.ReleaseSessionRequest.newBuilder()
+      .setSessionId(sessionId)
+      .setUserContext(userContext)
+      .setClientType(userAgent)
+      .build()
+    bstub.releaseSession(request)
+  }
+
+  /**
    * Shutdown the client's connection to the server.
    */
   def shutdown(): Unit = {

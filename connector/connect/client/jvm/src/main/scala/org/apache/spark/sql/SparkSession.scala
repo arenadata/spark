@@ -664,7 +664,16 @@ class SparkSession private[sql] (
    * @since 3.4.0
    */
   override def close(): Unit = {
-    client.shutdown()
+    try {
+      client.releaseSession()
+    } catch {
+      case e: Exception => logWarning("session.stop: Failed to release session", e)
+    }
+    try {
+      client.shutdown()
+    } catch {
+      case e: Exception => logWarning("session.stop: Failed to shutdown the client", e)
+    }
     allocator.close()
     SparkSession.onSessionClose(this)
   }

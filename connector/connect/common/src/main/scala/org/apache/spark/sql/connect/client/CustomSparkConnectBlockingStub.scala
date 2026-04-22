@@ -78,4 +78,12 @@ private[connect] class CustomSparkConnectBlockingStub(
       }
     }
   }
+
+  def releaseSession(request: ReleaseSessionRequest): ReleaseSessionResponse = {
+    GrpcExceptionConverter.convert {
+      retryHandler.retry {
+        stub.releaseSession(request)
+      }
+    }
+  }
 }
