@@ -156,22 +156,18 @@ class HiveCatalogedDDLSuite extends DDLSuite with TestHiveSingleton with BeforeA
     testAddColumnPartitioned("orc")
   }
 
-  test("SPARK-22431: illegal nested type") {
-    checkError(
-      exception = intercept[SparkException] {
-        spark.sql("CREATE TABLE t USING hive AS SELECT STRUCT('a' AS `$a`, 1 AS b) q")
-      },
-      errorClass = "CANNOT_RECOGNIZE_HIVE_TYPE",
-      parameters = Map("fieldType" -> "\"STRUCT<$A:STRING,B:INT>\"", "fieldName" -> "`q`")
-    )
+  test("SPARK-22431: nested type with $-prefixed field name via Hive") {
+    withTable("t1", "t2") {
+      spark.sql("CREATE TABLE t1 USING hive AS SELECT STRUCT('a' AS `$a`, 1 AS b) q")
+      val t1Fields = spark.table("t1").schema("q").dataType
+        .asInstanceOf[StructType].fieldNames.toSeq
+      assert(t1Fields == Seq("$a", "b"))
 
-    checkError(
-      exception = intercept[SparkException] {
-        spark.sql("CREATE TABLE t(q STRUCT<`$a`:INT, col2:STRING>, i1 INT) USING hive")
-      },
-      errorClass = "CANNOT_RECOGNIZE_HIVE_TYPE",
-      parameters = Map("fieldType" -> "\"STRUCT<$A:INT,COL2:STRING>\"", "fieldName" -> "`q`")
-    )
+      spark.sql("CREATE TABLE t2(q STRUCT<`$a`:INT, col2:STRING>, i1 INT) USING hive")
+      val t2Fields = spark.table("t2").schema("q").dataType
+        .asInstanceOf[StructType].fieldNames.toSeq
+      assert(t2Fields == Seq("$a", "col2"))
+    }
 
     withView("v") {
       spark.sql("CREATE VIEW v AS SELECT STRUCT('a' AS `a`, 1 AS b) q")
@@ -227,19 +223,13 @@ class HiveCatalogedDDLSuite extends DDLSuite with TestHiveSingleton with BeforeA
     }
   }
 
-  test("SPARK-22431: negative alter table tests with nested types") {
+  test("SPARK-22431: ALTER TABLE adds $-prefixed nested column via Hive") {
     withTable("t1") {
       spark.sql("CREATE TABLE t1 (q STRUCT<col1:INT, col2:STRING>, i1 INT) USING hive")
-      checkError(
-        exception = intercept[SparkException] {
-          spark.sql("ALTER TABLE t1 ADD COLUMNS (newcol1 STRUCT<`$col1`:STRING, col2:Int>)")
-        },
-        errorClass = "CANNOT_RECOGNIZE_HIVE_TYPE",
-        parameters = Map(
-          "fieldType" -> "\"STRUCT<$COL1:STRING,COL2:INT>\"",
-          "fieldName" -> "`newcol1`"
-        )
-      )
+      spark.sql("ALTER TABLE t1 ADD COLUMNS (newcol1 STRUCT<`$col1`:STRING, col2:Int>)")
+      val newcolFields = spark.table("t1").schema("newcol1").dataType
+        .asInstanceOf[StructType].fieldNames.toSeq
+      assert(newcolFields == Seq("$col1", "col2"))
     }
   }
 

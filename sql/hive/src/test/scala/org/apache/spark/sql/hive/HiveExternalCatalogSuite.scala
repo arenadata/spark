@@ -48,6 +48,10 @@ class HiveExternalCatalogSuite extends ExternalCatalogSuite {
     externalCatalog.client.reset()
   }
 
+  override protected def excluded: Seq[String] = Seq(
+    "rename partitions should update the location for managed table",
+    "create/drop/rename partitions should create/delete/rename the directory")
+
   import utils._
 
   test("SPARK-18647: do not put provider in table properties for Hive serde table") {

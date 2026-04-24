@@ -2285,6 +2285,7 @@ class DAGSchedulerSuite extends SparkFunSuite with TempLocalSparkContext with Ti
     sc.listenerBus.waitUntilEmpty()
 
     Thread.sleep(DAGScheduler.RESUBMIT_TIMEOUT * 2)
+    dagEventProcessLoopTester.runEvents()
     // map stage is running by resubmitted, result stage is waiting
     // map tasks and the origin result task 1.0 are running
     assert(scheduler.runningStages.size == 1, "Map stage should be running")
@@ -3204,7 +3205,9 @@ class DAGSchedulerSuite extends SparkFunSuite with TempLocalSparkContext with Ti
     assert(scheduler.runningStages.size === 0)
     assert(scheduler.activeJobs.isEmpty)
     assert(resultStage.latestInfo.failureReason.isDefined)
-    assert(resultStage.latestInfo.failureReason.get.contains("ignored"))
+    assert(resultStage.latestInfo.failureReason.get.
+      contains("A shuffle map stage with indeterminate output was failed and retried. " +
+        "However, Spark cannot rollback the ResultStage"))
     assert(scheduler.activeJobs.isEmpty, "Aborting the stage aborts the job as well.")
   }
 

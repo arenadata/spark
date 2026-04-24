@@ -110,17 +110,17 @@
       <scope>${hive.shims.scope}</scope>
     </dependency>
     <dependency>
-      <groupId>io.arenadata.hive</groupId>
+      <groupId>${hive.group}</groupId>
       <artifactId>hive-llap-common</artifactId>
       <scope>${hive.llap.scope}</scope>
     </dependency>
     <dependency>
-      <groupId>io.arenadata.hive</groupId>
+      <groupId>${hive.group}</groupId>
       <artifactId>hive-llap-client</artifactId>
       <scope>${hive.llap.scope}</scope>
     </dependency>
     <dependency>
-      <groupId>io.arenadata.hive</groupId>
+      <groupId>${hive.group}</groupId>
       <artifactId>hive-hbase-handler</artifactId>
       <scope>compile</scope>
     </dependency>
@@ -187,6 +187,12 @@
     <dependency>
       <groupId>org.scalacheck</groupId>
       <artifactId>scalacheck_${scala.binary.version}</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>commons-lang</groupId>
+      <artifactId>commons-lang</artifactId>
+      <version>2.6</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

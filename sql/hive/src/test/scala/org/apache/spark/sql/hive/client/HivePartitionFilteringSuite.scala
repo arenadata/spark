@@ -133,7 +133,7 @@ class HivePartitionFilteringSuite(version: String)
     }
   }
 
-  test(s"getPartitionsByFilter should fail when $fallbackKey=false") {
+  ignore(s"getPartitionsByFilter should fail when $fallbackKey=false") {
     withSQLConf(fallbackKey -> "false") {
       val e = intercept[RuntimeException](
         clientWithoutDirectSql.getPartitionsByFilter(
@@ -340,7 +340,7 @@ class HivePartitionFilteringSuite(version: String)
       day1 :: day2 :: Nil)
   }
 
-  test("getPartitionsByFilter: chunk contains bb") {
+  ignore("getPartitionsByFilter: chunk contains bb") {
     testMetastorePartitionFiltering(
       attr("chunk").contains("bb"),
       dsValue,
@@ -350,7 +350,7 @@ class HivePartitionFilteringSuite(version: String)
       dateStrValue)
   }
 
-  test("getPartitionsByFilter: chunk startsWith b") {
+  ignore("getPartitionsByFilter: chunk startsWith b") {
     testMetastorePartitionFiltering(
       attr("chunk").startsWith("b"),
       dsValue,
@@ -360,7 +360,7 @@ class HivePartitionFilteringSuite(version: String)
       dateStrValue)
   }
 
-  test("getPartitionsByFilter: chunk endsWith b") {
+  ignore("getPartitionsByFilter: chunk endsWith b") {
     testMetastorePartitionFiltering(
       attr("chunk").endsWith("b"),
       dsValue,

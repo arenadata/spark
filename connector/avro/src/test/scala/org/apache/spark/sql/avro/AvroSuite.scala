@@ -731,7 +731,9 @@ abstract class AvroSuite
       assert(uncompressSize > deflateSize)
       assert(snappySize > deflateSize)
       assert(snappySize > bzip2Size)
-      assert(bzip2Size > xzSize)
+      assert(uncompressSize > snappySize)
+      assert(xzSize > bzip2Size)
+      assert(uncompressSize > xzSize)
       assert(uncompressSize > zstandardSize)
     }
   }

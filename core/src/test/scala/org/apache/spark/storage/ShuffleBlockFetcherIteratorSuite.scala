@@ -140,7 +140,6 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
     when(blockManager.hostLocalDirManager).thenReturn(Some(hostLocalDirManager))
     when(mockExternalBlockStoreClient.getHostLocalDirs(any(), any(), any(), any()))
       .thenAnswer { invocation =>
-        import scala.collection.JavaConverters._
         invocation.getArgument[CompletableFuture[java.util.Map[String, Array[String]]]](3)
           .complete(hostLocalDirs.asJava)
       }

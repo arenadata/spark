@@ -15,20 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.hive.execution.command
+package org.apache.spark.tags;
 
-import org.apache.spark.sql.execution.command.v1
+import org.scalatest.TagAnnotation;
 
-/**
- * The class contains tests for the `DROP TABLE` command to check V1 Hive external table catalog.
- */
-class DropTableSuite extends v1.DropTableSuiteBase with CommandSuiteBase {
-  test("hive client calls") {
-    withNamespaceAndTable("ns", "tbl") { t =>
-      sql(s"CREATE TABLE $t (id int) $defaultUsing")
-      checkHiveClientCalls(expected = 13) {
-        sql(s"DROP TABLE $t")
-      }
-    }
-  }
-}
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@TagAnnotation
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD, ElementType.TYPE})
+public @interface AmmoniteTest { }

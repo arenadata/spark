@@ -71,13 +71,39 @@ class HadoopVersionInfoSuite extends SparkFunSuite {
     }
   }
 
+  test("Arenadata stack smoke: vendor Hive + vendor Hadoop are downloadable") {
+    assume(sys.env.contains("GITHUB_TOKEN") && sys.env.contains("GITHUB_USERNAME"),
+      "GITHUB_USERNAME/GITHUB_TOKEN are not set; skipping arenadata smoke test.")
+
+    val ivyPath = Utils.createTempDir(
+      namePrefix = s"${classOf[HadoopVersionInfoSuite].getSimpleName}-arenadata-ivy")
+    try {
+      val hadoopConf = new Configuration()
+      hadoopConf.set("datanucleus.schema.autoCreateAll", "true")
+      hadoopConf.set("hive.metastore.schema.verification", "false")
+
+      val loader = IsolatedClientLoader.forVersion(
+        hiveMetastoreVersion = hive.v2_3_arenadata.mavenVersion,
+        hadoopVersion = VersionInfo.getVersion,
+        sparkConf = new SparkConf(),
+        hadoopConf = hadoopConf,
+        config = HiveClientBuilder.buildConf(Map.empty),
+        ivyPath = Some(ivyPath.getCanonicalPath))
+      assert(loader.version == hive.v2_3_arenadata)
+      loader.createClient().getState
+    } finally {
+      Utils.deleteRecursively(ivyPath)
+    }
+  }
+
   test("SPARK-32212: test supportHadoopShadedClient()") {
-    Seq("3.2.2", "3.2.3", "3.2.2.1", "3.2.2-XYZ", "3.2.2.4-SNAPSHOT").foreach { version =>
+    Seq("3.2.2", "3.2.3", "3.2.2.1", "3.2.2-XYZ", "3.2.2.4-SNAPSHOT",
+        "3.4.0", "3.4.3", "3.4.3.1-4.3.0-0", "4", "4.0.0").foreach { version =>
       assert(IsolatedClientLoader.supportsHadoopShadedClient(version), s"version $version")
     }
 
     // negative cases
-    Seq("3.1.3", "3.2", "3.2.1", "4").foreach { version =>
+    Seq("3.1.3", "3.2", "3.2.1").foreach { version =>
       assert(!IsolatedClientLoader.supportsHadoopShadedClient(version), s"version $version")
     }
   }

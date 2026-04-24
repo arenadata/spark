@@ -1,0 +1,48 @@
+<!--
+  Arenadata Spark fork — custom Ivy settings.
+
+  Used when SPARK_JARS_IVY_SETTINGS or -Dspark.jars.ivySettings points here.
+  Adds GitHub Packages resolvers for arenadata/* forks (zookeeper, curator,
+  hadoop, hive, etc.) as fallback after Maven Central.
+
+  Authentication for maven.pkg.github.com is taken from environment:
+    GITHUB_USERNAME — GitHub login
+    GITHUB_TOKEN    — GitHub PAT with read:packages scope
+-->
+<ivysettings>
+  <settings defaultResolver="default-chain"/>
+
+  <property name="local-maven2-dir" value="${user.home}/.m2/repository/"/>
+
+  <credentials host="maven.pkg.github.com"
+               realm="GitHub Package Registry"
+               username="${env.GITHUB_USERNAME}"
+               passwd="${env.GITHUB_TOKEN}"/>
+
+  <resolvers>
+    <ibiblio name="central" m2compatible="true"
+             root="https://repo.maven.apache.org/maven2"/>
+    <ibiblio name="gcs-maven-central-mirror" m2compatible="true"
+             root="https://maven-central.storage-download.googleapis.com/maven2/"/>
+
+    <filesystem name="local-maven-2" m2compatible="true" local="true">
+      <artifact pattern="${local-maven2-dir}/[organisation]/[module]/[revision]/[module]-[revision](-[classifier]).[ext]"/>
+      <ivy      pattern="${local-maven2-dir}/[organisation]/[module]/[revision]/[module]-[revision].pom"/>
+    </filesystem>
+
+    <chain name="arenadata" returnFirst="true">
+      <ibiblio name="arenadata-hadoop"    m2compatible="true" root="https://maven.pkg.github.com/arenadata/hadoop"/>
+      <ibiblio name="arenadata-hive"      m2compatible="true" root="https://maven.pkg.github.com/arenadata/hive"/>
+      <ibiblio name="arenadata-zookeeper" m2compatible="true" root="https://maven.pkg.github.com/arenadata/zookeeper"/>
+      <ibiblio name="arenadata-curator"   m2compatible="true" root="https://maven.pkg.github.com/arenadata/curator"/>
+      <ibiblio name="arenadata-hbase"     m2compatible="true" root="https://maven.pkg.github.com/arenadata/hbase"/>
+    </chain>
+
+    <chain name="default-chain" returnFirst="true" checkmodified="true" changingPattern=".*SNAPSHOT">
+      <resolver ref="local-maven-2"/>
+      <resolver ref="gcs-maven-central-mirror"/>
+      <resolver ref="central"/>
+      <resolver ref="arenadata"/>
+    </chain>
+  </resolvers>
+</ivysettings>

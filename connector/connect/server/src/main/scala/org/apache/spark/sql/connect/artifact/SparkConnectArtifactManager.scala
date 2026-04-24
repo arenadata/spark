@@ -22,10 +22,13 @@ import java.net.{URI, URL, URLClassLoader}
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.ws.rs.core.UriBuilder
+
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
-import org.apache.commons.io.{FileUtils, FilenameUtils}
+
+import org.apache.commons.io.{FilenameUtils, FileUtils}
 import org.apache.hadoop.fs.{LocalFileSystem, Path => FSPath}
+
 import org.apache.spark.{JobArtifactSet, JobArtifactState, SparkContext, SparkEnv}
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config.{CONNECT_SCALA_UDF_STUB_PREFIXES, EXECUTOR_USER_CLASS_PATH_FIRST, SPARK_ARTIFACTORY_DIR_PATH}
@@ -299,8 +302,8 @@ object SparkConnectArtifactManager extends Logging {
       return
     }
     val oldArtifactUri = currentArtifactRootUri
-    currentArtifactRootUri = SparkEnv.get.rpcEnv.fileServer
-      .addDirectoryIfAbsent(SparkEnv.get.conf.get(SPARK_ARTIFACTORY_DIR_PATH), artifactRootPath.toFile)
+    currentArtifactRootUri = SparkEnv.get.rpcEnv.fileServer.addDirectoryIfAbsent(
+      SparkEnv.get.conf.get(SPARK_ARTIFACTORY_DIR_PATH), artifactRootPath.toFile)
     lastKnownSparkContextInstance = sc
     logDebug(s"Artifact URI updated from $oldArtifactUri to $currentArtifactRootUri")
   }

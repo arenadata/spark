@@ -66,7 +66,7 @@ class HiveClientSuite(version: String, allVersions: Seq[String])
     if (versionSpark != null) versionSpark.reset()
     versionSpark = TestHiveVersion(client)
     assert(versionSpark.sharedState.externalCatalog.unwrapped.asInstanceOf[HiveExternalCatalog]
-      .client.version.fullVersion.startsWith(version))
+      .client.version.mavenVersion.startsWith(version))
   }
 
   def table(database: String, tableName: String,
@@ -691,7 +691,7 @@ class HiveClientSuite(version: String, allVersions: Seq[String])
   ///////////////////////////////////////////////////////////////////////////
 
   test("version") {
-    assert(client.version.fullVersion.startsWith(version))
+    assert(client.version.mavenVersion.startsWith(version))
   }
 
   test("getConf") {

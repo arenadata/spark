@@ -23,6 +23,7 @@ import org.apache.spark.{SparkConf, SparkFunSuite}
 import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.hive.{HiveExternalCatalog, HiveUtils}
+import org.apache.spark.sql.hive.client.hive
 import org.apache.spark.sql.hive.test.TestHiveSingleton
 import org.apache.spark.sql.internal.StaticSQLConf._
 import org.apache.spark.sql.types._
@@ -30,12 +31,12 @@ import org.apache.spark.tags.{ExtendedHiveTest, SlowHiveTest}
 import org.apache.spark.util.Utils
 
 /**
- * A separate set of DDL tests that uses Hive 2.1 libraries, which behave a little differently
+ * A separate set of DDL tests that uses Hive 2.3 libraries, which behave a little differently
  * from the built-in ones.
  */
 @SlowHiveTest
 @ExtendedHiveTest
-class Hive_2_1_DDLSuite extends SparkFunSuite with TestHiveSingleton {
+class Hive_2_3_DDLSuite extends SparkFunSuite with TestHiveSingleton {
 
   // Create a custom HiveExternalCatalog instance with the desired configuration. We cannot
   // use SparkSession here since there's already an active on managed by the TestHive object.
@@ -47,14 +48,14 @@ class Hive_2_1_DDLSuite extends SparkFunSuite with TestHiveSingleton {
       .set(SparkLauncher.SPARK_MASTER, "local")
       .set(WAREHOUSE_PATH.key, warehouse.toURI().toString())
       .set(CATALOG_IMPLEMENTATION.key, "hive")
-      .set(HiveUtils.HIVE_METASTORE_VERSION.key, "2.1")
+      .set(HiveUtils.HIVE_METASTORE_VERSION.key, hive.v2_3_arenadata.mavenVersion)
       .set(HiveUtils.HIVE_METASTORE_JARS.key, "maven")
 
     val hadoopConf = new Configuration()
     hadoopConf.set("hive.metastore.warehouse.dir", warehouse.toURI().toString())
     hadoopConf.set("javax.jdo.option.ConnectionURL",
       s"jdbc:derby:;databaseName=${metastore.getAbsolutePath()};create=true")
-    // These options are needed since the defaults in Hive 2.1 cause exceptions with an
+    // These options are needed since the defaults in Hive 2.3 cause exceptions with an
     // empty metastore db.
     hadoopConf.set("datanucleus.schema.autoCreateAll", "true")
     hadoopConf.set("hive.metastore.schema.verification", "false")

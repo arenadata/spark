@@ -19,15 +19,17 @@ package org.apache.spark.sql.hive.client
 
 import java.lang.{Boolean => JBoolean, Integer => JInteger, Long => JLong}
 import java.lang.reflect.{InvocationTargetException, Method}
-import java.util.{Locale, ArrayList => JArrayList, List => JList, Map => JMap}
+import java.util.{ArrayList => JArrayList, List => JList, Locale, Map => JMap}
 import java.util.concurrent.TimeUnit
+
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hive.conf.HiveConf
-import org.apache.hadoop.hive.metastore.{IMetaStoreClient, PartitionDropOptions, TableType, api}
-import org.apache.hadoop.hive.metastore.api.{Database, EnvironmentContext, FunctionType, Index, MetaException, PrincipalType, ResourceType, ResourceUri, Function => HiveFunction}
+import org.apache.hadoop.hive.metastore.{api, IMetaStoreClient, PartitionDropOptions, TableType}
+import org.apache.hadoop.hive.metastore.api.{Database, EnvironmentContext, Function => HiveFunction, FunctionType, Index, MetaException, PrincipalType, ResourceType, ResourceUri}
 import org.apache.hadoop.hive.ql.Driver
 import org.apache.hadoop.hive.ql.io.AcidUtils
 import org.apache.hadoop.hive.ql.metadata.{Hive, HiveException, Partition, Table}
@@ -35,6 +37,7 @@ import org.apache.hadoop.hive.ql.plan.{AddPartitionDesc, DynamicPartitionCtx}
 import org.apache.hadoop.hive.ql.processors.{CommandProcessor, CommandProcessorFactory}
 import org.apache.hadoop.hive.ql.session.SessionState
 import org.apache.hadoop.hive.serde.serdeConstants
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.metrics.source.HiveCatalogMetrics
 import org.apache.spark.sql.catalyst.{FunctionIdentifier, InternalRow}
@@ -366,8 +369,11 @@ private[client] class Shim_v2_0 extends Shim with Logging {
           recordHiveCall()
           hive.getPartitionsByFilter(table, filter)
         } catch {
-          case ex: InvocationTargetException if ex.getCause.isInstanceOf[MetaException] &&
-            shouldFallback =>
+          case ex: Exception if shouldFallback && (ex match {
+            case _: MetaException => true
+            case ite: InvocationTargetException => ite.getCause.isInstanceOf[MetaException]
+            case _ => false
+          }) =>
             logWarning("Caught Hive MetaException attempting to get partition metadata by " +
               "filter from Hive. Falling back to fetching all partition metadata, which will " +
               "degrade performance. Modifying your Hive metastore configuration to set " +

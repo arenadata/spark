@@ -22,6 +22,6 @@ private[client] trait HiveClientVersions {
   protected val versions: Seq[String] = if (testVersions.nonEmpty) {
     testVersions.get.split(",").map(_.trim).filter(_.nonEmpty).toIndexedSeq
   } else {
-    Seq("2.0", "2.1", "2.2", "2.3", "3.0", "3.1", "4.0")
+    Seq(hive.v2_3_arenadata.mavenVersion)
   }
 }

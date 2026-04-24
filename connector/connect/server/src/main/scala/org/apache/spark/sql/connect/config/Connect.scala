@@ -16,9 +16,9 @@
  */
 package org.apache.spark.sql.connect.config
 
-import org.apache.spark.internal.config.ConfigBuilder
-
 import java.util.concurrent.TimeUnit
+
+import org.apache.spark.internal.config.ConfigBuilder
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.connect.common.config.ConnectCommon
 

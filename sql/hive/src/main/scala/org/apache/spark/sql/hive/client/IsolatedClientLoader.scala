@@ -88,6 +88,11 @@ private[hive] object IsolatedClientLoader extends Logging {
   }
 
   def hiveVersion(version: String): HiveVersion = {
+    if (version == hive.v2_3_arenadata.mavenVersion ||
+        version == "2.3.10_arenadata1") {
+      return hive.v2_3_arenadata
+    }
+
     VersionUtils.majorMinorPatchVersion(version).flatMap {
       case (2, 0, _) => Some(hive.v2_0)
       case (2, 1, _) => Some(hive.v2_1)
@@ -107,6 +112,8 @@ private[hive] object IsolatedClientLoader extends Logging {
     VersionUtils.majorMinorPatchVersion(hadoopVersion).exists {
       case (3, 2, v) if v >= 2 => true
       case (3, 3, v) if v >= 1 => true
+      case (3, minor, _) if minor >= 4 => true
+      case (major, _, _) if major >= 4 => true
       case _ => false
     }
   }
@@ -124,21 +131,33 @@ private[hive] object IsolatedClientLoader extends Logging {
     }
     val hiveArtifacts = version.extraDeps ++
       Seq("hive-metastore", "hive-exec", "hive-common", "hive-serde")
-        .map(a => s"org.apache.hive:$a:${version.fullVersion}") ++
+        .map(a => s"org.apache.hive:$a:${version.mavenVersion}") ++
       Seq("com.google.guava:guava:14.0.1") ++ hadoopJarNames
 
     val classpaths = quietly {
-      SparkSubmitUtils.resolveMavenCoordinates(
-        hiveArtifacts.mkString(","),
-        SparkSubmitUtils.buildIvySettings(
-          Some(remoteRepos),
-          ivyPath),
-        Some(SparkSubmitUtils.buildIvySettings(
-          Some(remoteRepos),
-          ivyPath,
-          useLocalM2AsCache = false)),
-        transitive = true,
-        exclusions = version.exclusions)
+      val ivySettingsFile = sys.props.get("spark.jars.ivySettings")
+        .orElse(sys.env.get("SPARK_JARS_IVY_SETTINGS"))
+      ivySettingsFile match {
+        case Some(path) =>
+          SparkSubmitUtils.resolveMavenCoordinates(
+            hiveArtifacts.mkString(","),
+            SparkSubmitUtils.loadIvySettings(path, Some(remoteRepos), ivyPath),
+            None,
+            transitive = true,
+            exclusions = version.exclusions)
+        case None =>
+          SparkSubmitUtils.resolveMavenCoordinates(
+            hiveArtifacts.mkString(","),
+            SparkSubmitUtils.buildIvySettings(
+              Some(remoteRepos),
+              ivyPath),
+            Some(SparkSubmitUtils.buildIvySettings(
+              Some(remoteRepos),
+              ivyPath,
+              useLocalM2AsCache = false)),
+            transitive = true,
+            exclusions = version.exclusions)
+      }
     }
     val allFiles = classpaths.map(new File(_)).toSet
 

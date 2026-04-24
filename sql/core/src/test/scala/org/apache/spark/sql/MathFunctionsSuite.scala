@@ -158,7 +158,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
 
   test("acosh") {
     testOneToOneMathFunction(acosh,
-      (x: Double) => math.log(x + math.sqrt(x * x - 1)) )
+      (x: Double) => if (x < 1) Double.NaN else math.log(x + math.sqrt(x * x - 1)))
   }
 
   test("tan") {
