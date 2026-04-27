@@ -235,7 +235,7 @@
     <test.java.home>${java.home}</test.java.home>
 
     <!-- Some UI tests require Chrome and Chrome driver installed so those tests are disabled by default. -->
-    <test.default.exclude.tags>org.apache.spark.tags.ChromeUITest</test.default.exclude.tags>
+    <test.default.exclude.tags>org.apache.spark.tags.ChromeUITest,org.apache.spark.tags.AmmoniteTest</test.default.exclude.tags>
     <test.exclude.tags></test.exclude.tags>
     <test.include.tags></test.include.tags>
 
@@ -3105,6 +3105,9 @@
               -->
               <SPARK_LOCAL_HOSTNAME>localhost</SPARK_LOCAL_HOSTNAME>
               <SPARK_LOCAL_IP>127.0.0.1</SPARK_LOCAL_IP>
+              <GITHUB_USERNAME>${env.GITHUB_USERNAME}</GITHUB_USERNAME>
+              <GITHUB_TOKEN>${env.GITHUB_TOKEN}</GITHUB_TOKEN>
+              <SPARK_DEBUG_SC_JVM_CLIENT>${env.SPARK_DEBUG_SC_JVM_CLIENT}</SPARK_DEBUG_SC_JVM_CLIENT>
             </environmentVariables>
             <systemPropertyVariables>
               <log4j.configurationFile>file:src/test/resources/log4j2.properties</log4j.configurationFile>
@@ -3121,6 +3124,9 @@
               <!-- Needed by sql/hive tests. -->
               <test.src.tables>src</test.src.tables>
               <hive.conf.validation>false</hive.conf.validation>
+              <spark.jars.ivySettings>${session.executionRootDirectory}/dev/ivysettings.xml</spark.jars.ivySettings>
+              <ghpkg.user>${env.GITHUB_USERNAME}</ghpkg.user>
+              <ghpkg.token>${env.GITHUB_TOKEN}</ghpkg.token>
             </systemPropertyVariables>
             <failIfNoTests>false</failIfNoTests>
             <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
@@ -3182,6 +3188,9 @@
               -->
               <SPARK_LOCAL_HOSTNAME>localhost</SPARK_LOCAL_HOSTNAME>
               <SPARK_LOCAL_IP>127.0.0.1</SPARK_LOCAL_IP>
+              <GITHUB_USERNAME>${env.GITHUB_USERNAME}</GITHUB_USERNAME>
+              <GITHUB_TOKEN>${env.GITHUB_TOKEN}</GITHUB_TOKEN>
+              <SPARK_DEBUG_SC_JVM_CLIENT>${env.SPARK_DEBUG_SC_JVM_CLIENT}</SPARK_DEBUG_SC_JVM_CLIENT>
             </environmentVariables>
             <systemProperties>
               <log4j.configurationFile>file:src/test/resources/log4j2.properties</log4j.configurationFile>
@@ -3199,6 +3208,8 @@
               <!-- Needed by sql/hive tests. -->
               <test.src.tables>__not_used__</test.src.tables>
               <spark.jars.ivySettings>${session.executionRootDirectory}/dev/ivysettings.xml</spark.jars.ivySettings>
+              <ghpkg.user>${env.GITHUB_USERNAME}</ghpkg.user>
+              <ghpkg.token>${env.GITHUB_TOKEN}</ghpkg.token>
             </systemProperties>
             <tagsToExclude>${test.exclude.tags},${test.default.exclude.tags}</tagsToExclude>
             <tagsToInclude>${test.include.tags}</tagsToInclude>

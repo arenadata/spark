@@ -89,7 +89,7 @@ object BuildCommons {
 
   // Google Protobuf version used for generating the protobuf.
   // SPARK-41247: needs to be consistent with `protobuf.version` in `pom.xml`.
-  val protoVersion = "3.25.8"
+  val protoVersion = "3.25.9"
   // GRPC version used for Spark Connect.
   val grpcVersion = "1.76.0"
 }
@@ -238,7 +238,7 @@ object SparkBuild extends PomBuild {
       if (VersionNumber(scalaVersion.value).matchesSemVer(SemanticSelector("<2.13.2"))) {
         val silencerVersion = "1.7.13"
         Seq(
-          "org.scala-lang.modules" %% "scala-collection-compat" % "2.2.0",
+          "org.scala-lang.modules" %% "scala-collection-compat" % "2.7.0",
           compilerPlugin("com.github.ghik" % "silencer-plugin" % silencerVersion cross CrossVersion.full),
           "com.github.ghik" % "silencer-lib" % silencerVersion % Provided cross CrossVersion.full
         )
@@ -260,13 +260,16 @@ object SparkBuild extends PomBuild {
           // verbose warning on deprecation, error on all others
           // see `scalac -Wconf:help` for details
           "-Wconf:cat=deprecation:wv,any:e",
+          "-Wconf:msg=is deprecated:s",
+          "-Wconf:cat=other-implicit-type:s",
+          "-Wconf:msg=legacy-binding:s",
           // 2.13-specific warning hits to be muted (as narrowly as possible) and addressed separately
           "-Wunused:imports",
           "-Wconf:cat=lint-multiarg-infix:wv",
           "-Wconf:cat=other-nullary-override:wv",
           "-Wconf:cat=other-match-analysis&site=org.apache.spark.sql.catalyst.catalog.SessionCatalog.lookupFunction.catalogFunction:wv",
           "-Wconf:cat=other-pure-statement&site=org.apache.spark.streaming.util.FileBasedWriteAheadLog.readAll.readFile:wv",
-          "-Wconf:cat=other-pure-statement&site=org.apache.spark.scheduler.OutputCommitCoordinatorSuite.<local OutputCommitCoordinatorSuite>.futureAction:wv",
+          "-Wconf:cat=other-pure-statement&site=org.apache.spark.scheduler.OutputCommitCoordinatorSuite.*:wv",
           "-Wconf:cat=other-pure-statement&site=org.apache.spark.sql.streaming.sources.StreamingDataSourceV2Suite.testPositiveCase.\\$anonfun:wv",
           // SPARK-33775 Suppress compilation warnings that contain the following contents.
           // TODO(SPARK-33805): Undo the corresponding deprecated usage suppression rule after
@@ -306,7 +309,7 @@ object SparkBuild extends PomBuild {
       .orElse(sys.props.get("java.home").map { p => new File(p).getParentFile().getAbsolutePath() })
       .map(file),
     publishMavenStyle := true,
-    unidocGenjavadocVersion := "0.18",
+    unidocGenjavadocVersion := "0.19",
 
     // Override SBT's default resolvers:
     resolvers := Seq(
@@ -315,9 +318,20 @@ object SparkBuild extends PomBuild {
       "gcs-maven-central-mirror" at "https://maven-central.storage-download.googleapis.com/maven2/",
       DefaultMavenRepository,
       Resolver.mavenLocal,
-      Resolver.file("ivyLocal", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns)
+      Resolver.file("ivyLocal", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
+      "arenadata-hadoop"    at "https://maven.pkg.github.com/arenadata/hadoop",
+      "arenadata-hive"      at "https://maven.pkg.github.com/arenadata/hive",
+      "arenadata-zookeeper" at "https://maven.pkg.github.com/arenadata/zookeeper",
+      "arenadata-curator"   at "https://maven.pkg.github.com/arenadata/curator"
     ),
     externalResolvers := resolvers.value,
+    credentials ++= sys.env.get("GITHUB_TOKEN").toSeq.map { token =>
+      Credentials(
+        "GitHub Package Registry",
+        "maven.pkg.github.com",
+        sys.env.getOrElse("GITHUB_USERNAME", "x-access-token"),
+        token)
+    },
     otherResolvers := SbtPomKeys.mvnLocalRepository(dotM2 => Seq(Resolver.file("dotM2", dotM2))).value,
     (MavenCompile / publishLocalConfiguration) := PublishConfiguration()
         .withResolverName("dotM2")
@@ -1097,12 +1111,12 @@ object KubernetesIntegrationTests {
  * Overrides to work around sbt's dependency resolution being different from Maven's.
  */
 object DependencyOverrides {
-  lazy val guavaVersion = sys.props.get("guava.version").getOrElse("14.0.1")
+  lazy val guavaVersion = sys.props.get("guava.version").getOrElse("33.5.0-jre")
   lazy val settings = Seq(
     dependencyOverrides += "com.google.guava" % "guava" % guavaVersion,
     dependencyOverrides += "xerces" % "xercesImpl" % "2.12.2",
     dependencyOverrides += "jline" % "jline" % "2.14.6",
-    dependencyOverrides += "org.apache.avro" % "avro" % "1.11.2")
+    dependencyOverrides += "org.apache.avro" % "avro" % "1.11.5")
 }
 
 /**

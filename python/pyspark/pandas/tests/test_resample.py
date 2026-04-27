@@ -257,10 +257,12 @@ class ResampleTestsMixin:
     def test_series_resample(self):
         self._test_resample(self.pdf1.A, self.psdf1.A, ["4Y"], "right", None, "min")
         self._test_resample(self.pdf2.A, self.psdf2.A, ["13M"], "right", "left", "max")
-        self._test_resample(self.pdf3.A, self.psdf3.A, ["1001H"], "right", "right", "sum")
         self._test_resample(self.pdf4.A, self.psdf4.A, ["6D"], None, None, "mean")
         self._test_resample(self.pdf5.A, self.psdf5.A, ["47T"], "left", "left", "var")
         self._test_resample(self.pdf6.A, self.psdf6.A, ["111S"], "right", "right", "std")
+
+    def test_series_resample_non_divisor_hours(self):
+        self._test_resample(self.pdf3.A, self.psdf3.A, ["1001H"], "right", "right", "sum")
 
     def test_resample_on(self):
         np.random.seed(77)

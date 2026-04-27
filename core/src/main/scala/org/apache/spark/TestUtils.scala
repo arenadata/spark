@@ -397,8 +397,14 @@ private[spark] object TestUtils {
   }
 
   def withHttpServer(resBaseDir: String = ".")(body: URL => Unit): Unit = {
-    // 0 as port means choosing randomly from the available ports
-    val server = new Server(new InetSocketAddress(Utils.localCanonicalHostName, 0))
+    withHttpServer(resBaseDir, Utils.localCanonicalHostName, None)(body)
+  }
+
+  def withHttpServer(
+      resBaseDir: String,
+      bindHost: String,
+      hostInUrl: Option[String])(body: URL => Unit): Unit = {
+    val server = new Server(new InetSocketAddress(bindHost, 0))
     val resHandler = new ResourceHandler()
     resHandler.setResourceBase(resBaseDir)
     val handlers = new HandlerList()
@@ -406,7 +412,13 @@ private[spark] object TestUtils {
     server.setHandler(handlers)
     server.start()
     try {
-      body(server.getURI.toURL)
+      val url = hostInUrl match {
+        case Some(host) =>
+          new URL(server.getURI.getScheme, host, server.getURI.getPort, "")
+        case None =>
+          server.getURI.toURL
+      }
+      body(url)
     } finally {
       server.stop()
     }

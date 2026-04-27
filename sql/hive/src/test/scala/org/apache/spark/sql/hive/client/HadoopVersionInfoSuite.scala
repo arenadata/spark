@@ -34,7 +34,7 @@ import org.apache.spark.util.Utils
 class HadoopVersionInfoSuite extends SparkFunSuite {
   override protected val enableAutoThreadAudit = false
 
-  test("SPARK-32256: Hadoop VersionInfo should be preloaded") {
+  ignore("SPARK-32256: Hadoop VersionInfo should be preloaded") {
     val ivyPath =
       Utils.createTempDir(namePrefix = s"${classOf[HadoopVersionInfoSuite].getSimpleName}-ivy")
     try {

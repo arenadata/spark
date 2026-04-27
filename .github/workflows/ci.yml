@@ -1,0 +1,536 @@
+name: CI
+
+on:
+  push:
+    branches: ['develop/**', 'release/**']
+  pull_request:
+    branches: ['develop/**', 'release/**']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '17'
+  MAVEN_ARGS: -B -V -e -ntp
+  MAVEN_OPTS: -Xmx4g -XX:ReservedCodeCacheSize=1g -XX:MaxMetaspaceSize=2g
+  SPARK_LOCAL_IP: localhost
+  SPARK_LOCAL_HOSTNAME: localhost
+  SPARK_PROFILES: -Pscala-2.13 -Phadoop-3 -Phive -Phive-thriftserver -Pyarn -Pmesos -Pkubernetes -Phadoop-cloud -Pconnect
+
+jobs:
+  build:
+    name: "${{ matrix.name }} ${{ matrix.comment }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "core / utils / tags"
+            slug: "core-utils-tags"
+            modules: ":spark-core_2.13,:spark-launcher_2.13,:spark-network-common_2.13,:spark-network-shuffle_2.13,:spark-network-yarn_2.13,:spark-unsafe_2.13,:spark-kvstore_2.13,:spark-tags_2.13,:spark-sketch_2.13,:spark-common-utils_2.13"
+          - name: "graphx / examples / repl"
+            slug: "graphx-examples-repl"
+            modules: ":spark-graphx_2.13,:spark-examples_2.13,:spark-repl_2.13"
+          - name: "catalyst / sql-api / hive-thriftserver"
+            slug: "catalyst-sql-api-hive-thriftserver"
+            modules: ":spark-sql-api_2.13,:spark-catalyst_2.13,:spark-hive-thriftserver_2.13"
+          - name: "sql"
+            slug: "sql"
+            modules: ":spark-sql_2.13"
+          - name: "hive"
+            slug: "hive"
+            modules: ":spark-hive_2.13"
+          - name: "streaming / mllib / yarn / mesos / k8s / connect / protobuf / kafka / avro"
+            slug: "streaming-mllib-yarn-mesos-k8s-connect-protobuf-kafka-avro"
+            modules: ":spark-streaming_2.13,:spark-sql-kafka-0-10_2.13,:spark-streaming-kafka-0-10_2.13,:spark-token-provider-kafka-0-10_2.13,:spark-mllib-local_2.13,:spark-mllib_2.13,:spark-yarn_2.13,:spark-mesos_2.13,:spark-kubernetes_2.13,:spark-hadoop-cloud_2.13,:spark-connect_2.13,:spark-connect-common_2.13,:spark-connect-client-jvm_2.13,:spark-protobuf_2.13,:spark-avro_2.13,:spark-assembly_2.13"
+            extra: -Dtest.exclude.tags=org.apache.spark.tags.AmmoniteTest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Install Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python packages
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install 'numpy>=1.20.0' 'pyarrow' 'pandas' 'scipy' \
+            'unittest-xml-reporting' 'grpcio==1.56.0' 'protobuf==4.25.3'
+
+      - name: Build dependent modules (compile main+tests, install incl. test-jars)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+        run: >-
+          ./build/mvn ${{ env.MAVEN_ARGS }} install
+          -DskipTests=true -Dtest=__none__ -DfailIfNoTests=false
+          -pl ${{ matrix.modules }} -am
+          ${{ env.SPARK_PROFILES }}
+
+      - name: Provide plain hive-exec.jar for IsolatedClientLoader
+        run: |
+          d="$HOME/.m2/repository/org/apache/hive/hive-exec/2.3.10.2-4.3.0-0"
+          if [[ -f "$d/hive-exec-2.3.10.2-4.3.0-0-core.jar" && ! -f "$d/hive-exec-2.3.10.2-4.3.0-0.jar" ]]; then
+            cp "$d/hive-exec-2.3.10.2-4.3.0-0-core.jar" "$d/hive-exec-2.3.10.2-4.3.0-0.jar"
+          fi
+
+      - name: Run tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+          SPARK_DEBUG_SC_JVM_CLIENT: 'true'
+        shell: 'script -q -e -c "bash {0}"'
+        run: >-
+          ./build/mvn ${{ env.MAVEN_ARGS }} test
+          -pl ${{ matrix.modules }}
+          ${{ env.SPARK_PROFILES }}
+          ${{ matrix.extra || '' }}
+          -Dscalatest.rerunFailingTestsCount=2
+          -Dsurefire.rerunFailingTestsCount=2
+          -fae
+
+      - name: Upload surefire reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-${{ matrix.slug }}
+          path: '**/target/surefire-reports/'
+          if-no-files-found: ignore
+
+      - name: Upload unit-tests.log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-tests-log-${{ matrix.slug }}
+          path: '**/target/unit-tests.log'
+          if-no-files-found: ignore
+
+  pyspark:
+    name: "pyspark: ${{ matrix.name }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: sql
+            modules: pyspark-sql,pyspark-resource,pyspark-testing
+          - name: core
+            modules: pyspark-core,pyspark-streaming
+          - name: ml
+            modules: pyspark-mllib,pyspark-ml
+          - name: pandas
+            modules: pyspark-pandas
+          - name: pandas-slow
+            modules: pyspark-pandas-slow
+          - name: connect
+            modules: pyspark-connect
+          - name: pandas-connect
+            modules: pyspark-pandas-connect
+          - name: pandas-slow-connect
+            modules: pyspark-pandas-slow-connect
+          - name: errors
+            modules: pyspark-errors
+    env:
+      MODULES_TO_TEST: ${{ matrix.modules }}
+      PYTHON_TO_TEST: python3.10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install PySpark dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install \
+            'numpy==1.26.4' 'pyarrow==12.0.1' 'pandas==2.0.3' 'scipy' \
+            'unittest-xml-reporting' 'coverage' \
+            'memory-profiler' 'plotly<6' 'matplotlib' \
+            'grpcio==1.56.0' 'grpcio-status==1.56.0' \
+            'protobuf==4.25.3' 'googleapis-common-protos==1.56.4' \
+            'graphviz>=0.20' 'openpyxl' \
+            'scikit-learn==1.1.*' 'mlflow>=2.3.1,<2.10' \
+            'torch==2.0.1' 'torchvision==0.15.2' 'torcheval'
+
+      - name: Build Spark (full reactor including assembly)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+        run: >-
+          ./build/mvn ${{ env.MAVEN_ARGS }} package -DskipTests
+          ${{ env.SPARK_PROFILES }}
+
+      - name: Run PySpark tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+        run: |
+          python3 python/run-tests.py --parallelism 1 --modules "$MODULES_TO_TEST" --python-executables "$PYTHON_TO_TEST"
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyspark-${{ matrix.name }}-reports
+          path: 'python/target/test-reports/'
+          if-no-files-found: ignore
+
+      - name: Upload unit-tests.log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyspark-${{ matrix.name }}-log
+          path: 'python/unit-tests.log'
+          if-no-files-found: ignore
+
+  sparkr:
+    name: SparkR
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Install R
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            r-base r-base-dev pandoc qpdf libcurl4-openssl-dev libssl-dev libxml2-dev \
+            r-cran-knitr r-cran-rmarkdown r-cran-devtools r-cran-testthat \
+            r-cran-survival r-cran-e1071 r-cran-roxygen2
+          sudo Rscript -e "install.packages('arrow', repos='https://cloud.r-project.org/')"
+
+      - name: Build Spark (full reactor including assembly)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+        run: >-
+          ./build/mvn ${{ env.MAVEN_ARGS }} package -DskipTests -Psparkr
+          ${{ env.SPARK_PROFILES }}
+
+      - name: Run SparkR tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+        run: ./R/run-tests.sh
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sparkr-reports
+          path: '**/target/surefire-reports/'
+          if-no-files-found: ignore
+
+  docker-integration-tests:
+    name: Docker integration tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Build Spark
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+        run: >-
+          ./build/mvn ${{ env.MAVEN_ARGS }} install -DskipTests
+          -pl :spark-docker-integration-tests_2.13 -am
+          ${{ env.SPARK_PROFILES }} -Pdocker-integration-tests
+
+      - name: Pre-pull JDBC test images
+        run: |
+          for img in mysql:8.0.31 postgres:16.2 postgres:16.2-alpine ibmcom/db2:11.5.6.0a mariadb:10.5.12; do
+            for attempt in 1 2 3 4 5; do
+              if docker pull "$img"; then break; fi
+              echo "Pull failed for $img (attempt $attempt), retrying in 30s..."
+              sleep 30
+            done
+          done
+
+      - name: Run tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+          ENABLE_DOCKER_INTEGRATION_TESTS: "1"
+        run: >-
+          ./build/mvn ${{ env.MAVEN_ARGS }} test
+          -pl :spark-docker-integration-tests_2.13
+          ${{ env.SPARK_PROFILES }} -Pdocker-integration-tests
+          -Dscalatest.rerunFailingTestsCount=2
+          -Dsurefire.rerunFailingTestsCount=2
+
+      - name: Upload surefire reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-integration-surefire
+          path: '**/target/surefire-reports/'
+          if-no-files-found: ignore
+
+      - name: Upload unit-tests.log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-integration-log
+          path: '**/target/unit-tests.log'
+          if-no-files-found: ignore
+
+  k8s-integration-tests:
+    name: Kubernetes integration tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Start minikube
+        run: |
+          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          sudo install minikube-linux-amd64 /usr/local/bin/minikube
+          minikube start --cpus 2 --memory 6144 --driver=docker
+
+      - name: Build Spark distribution (.tgz)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+        run: ./dev/make-distribution.sh --tgz ${{ env.SPARK_PROFILES }} -Pkubernetes
+
+      - name: Build Spark Docker images
+        run: |
+          ./bin/docker-image-tool.sh -r docker.io/library -t ci-test \
+            -p resource-managers/kubernetes/docker/src/main/dockerfiles/spark/bindings/python/Dockerfile \
+            -R resource-managers/kubernetes/docker/src/main/dockerfiles/spark/bindings/R/Dockerfile \
+            build
+
+      - name: Load images into minikube
+        run: |
+          minikube image load docker.io/library/spark:ci-test
+          minikube image load docker.io/library/spark-py:ci-test
+          minikube image load docker.io/library/spark-r:ci-test
+
+      - name: Grant cluster-admin to test service accounts
+        run: |
+          kubectl create clusterrolebinding spark-test-rbac \
+            --clusterrole=cluster-admin --group=system:serviceaccounts
+
+      - name: Install upstream modules (skip tests)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+        run: >-
+          ./build/mvn ${{ env.MAVEN_ARGS }} install -DskipTests
+          -pl :spark-kubernetes-integration-tests_2.13 -am
+          ${{ env.SPARK_PROFILES }} -Pkubernetes-integration-tests
+
+      - name: Run k8s integration tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+          SPARK_K8S_TEST_HOST_GATEWAY: 192.168.49.1
+        run: |
+          mkdir -p /tmp/k8s-debug
+          nohup kubectl get events -A -w \
+            -o 'custom-columns=TIME:.lastTimestamp,NS:.metadata.namespace,KIND:.involvedObject.kind,NAME:.involvedObject.name,REASON:.reason,MESSAGE:.message' \
+            > /tmp/k8s-debug/events-stream.log 2>&1 &
+          EVT_PID=$!
+          nohup kubectl get pods -A -w -o wide \
+            > /tmp/k8s-debug/pods-stream.log 2>&1 &
+          POD_PID=$!
+          ./build/mvn ${{ env.MAVEN_ARGS }} integration-test \
+            -pl :spark-kubernetes-integration-tests_2.13 \
+            ${{ env.SPARK_PROFILES }} -Pkubernetes-integration-tests \
+            -Dspark.kubernetes.test.imageRepo=docker.io/library \
+            -Dspark.kubernetes.test.imageTag=ci-test \
+            -Dspark.kubernetes.test.deployMode=minikube \
+            -Dscalatest.rerunFailingTestsCount=2
+          rc=$?
+          kill $EVT_PID $POD_PID 2>/dev/null || true
+          exit $rc
+
+      - name: Collect k8s diagnostics
+        if: failure()
+        run: |
+          mkdir -p /tmp/k8s-debug
+          kubectl get nodes -o wide                  > /tmp/k8s-debug/nodes.txt 2>&1 || true
+          kubectl get all -A -o wide                 > /tmp/k8s-debug/all-resources.txt 2>&1 || true
+          kubectl get events -A --sort-by=.lastTimestamp > /tmp/k8s-debug/events.txt 2>&1 || true
+          kubectl describe pods -A                   > /tmp/k8s-debug/describe-pods.txt 2>&1 || true
+          kubectl get pv,pvc,storageclass -A         > /tmp/k8s-debug/storage.txt 2>&1 || true
+          for ns in $(kubectl get ns -o jsonpath='{.items[*].metadata.name}'); do
+            for pod in $(kubectl -n "$ns" get pods -o jsonpath='{.items[*].metadata.name}'); do
+              kubectl -n "$ns" logs "$pod" --all-containers --tail=500 \
+                > "/tmp/k8s-debug/logs-$ns-$pod.txt" 2>&1 || true
+              kubectl -n "$ns" logs "$pod" --all-containers --previous --tail=500 \
+                > "/tmp/k8s-debug/logs-$ns-$pod-prev.txt" 2>&1 || true
+            done
+          done
+          minikube ssh -- 'ls -la /tmp; df -h; mount | grep tmp' \
+            > /tmp/k8s-debug/minikube-node.txt 2>&1 || true
+          find . -path '*/integration-tests/target/integration-tests.log' \
+            -exec cp {} /tmp/k8s-debug/integration-tests.log \; 2>/dev/null || true
+
+      - name: Upload k8s diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-debug
+          path: /tmp/k8s-debug
+          if-no-files-found: ignore
+
+      - name: Upload surefire reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-surefire
+          path: '**/target/surefire-reports/'
+          if-no-files-found: ignore
+
+  tpcds-1g:
+    name: TPC-DS (SF=1)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: sbt
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Cache Coursier
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/coursier
+          key: tpcds-coursier-${{ hashFiles('**/pom.xml', '**/plugins.sbt') }}
+          restore-keys: tpcds-coursier-
+
+      - name: Cache TPC-DS data
+        id: cache-tpcds
+        uses: actions/cache@v4
+        with:
+          path: ./tpcds-sf-1
+          key: tpcds-sf-1-${{ hashFiles('sql/core/src/test/scala/org/apache/spark/sql/TPCDSSchema.scala') }}
+
+      - name: Checkout tpcds-kit
+        if: steps.cache-tpcds.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: databricks/tpcds-kit
+          ref: 2a5078a782192ddb6efbcead8de9973d6ab4f069
+          path: ./tpcds-kit
+
+      - name: Build tpcds-kit
+        if: steps.cache-tpcds.outputs.cache-hit != 'true'
+        run: |
+          cd tpcds-kit/tools
+          make OS=LINUX CC="cc -fcommon"
+
+      - name: Generate TPC-DS data
+        if: steps.cache-tpcds.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+        run: |
+          build/sbt -Pscala-2.13 "sql/Test/runMain org.apache.spark.sql.GenTPCDSData --dsdgenDir $PWD/tpcds-kit/tools --location $PWD/tpcds-sf-1 --scaleFactor 1 --numPartitions 1 --overwrite"
+
+      - name: Run TPC-DS queries (SMJ)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+          SPARK_TPCDS_DATA: ${{ github.workspace }}/tpcds-sf-1
+          SPARK_TPCDS_JOIN_CONF: |
+            spark.sql.autoBroadcastJoinThreshold=-1
+            spark.sql.join.preferSortMergeJoin=true
+        run: |
+          build/sbt -Pscala-2.13 "sql/testOnly org.apache.spark.sql.TPCDSQueryTestSuite"
+
+      - name: Run TPC-DS queries (BHJ)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+          SPARK_TPCDS_DATA: ${{ github.workspace }}/tpcds-sf-1
+          SPARK_TPCDS_JOIN_CONF: |
+            spark.sql.autoBroadcastJoinThreshold=10485760
+        run: |
+          build/sbt -Pscala-2.13 "sql/testOnly org.apache.spark.sql.TPCDSQueryTestSuite"
+
+      - name: Run TPC-DS queries (SHJ)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
+          SPARK_TPCDS_DATA: ${{ github.workspace }}/tpcds-sf-1
+          SPARK_TPCDS_JOIN_CONF: |
+            spark.sql.autoBroadcastJoinThreshold=-1
+            spark.sql.join.forceApplyShuffledHashJoin=true
+        run: |
+          build/sbt -Pscala-2.13 "sql/testOnly org.apache.spark.sql.TPCDSQueryTestSuite"
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tpcds-test-reports
+          path: '**/target/test-reports/'
+          if-no-files-found: ignore
+
+      - name: Upload unit-tests.log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tpcds-log
+          path: '**/target/unit-tests.log'
+          if-no-files-found: ignore
