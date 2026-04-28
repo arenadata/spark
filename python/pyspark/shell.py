@@ -49,9 +49,9 @@ if getattr(builtins, "__IPYTHON__", False):
 if is_remote():
     try:
         if os.environ.get("KYUUBI_AUTH"):
-            from kyuubi.spark_connect import KyuubiChannelBuilder
+            from kyuubi.spark_connect import KyuubiSessionBuilder
             from pyspark.sql.connect.session import SparkSession as ConnectSparkSession
-            _kyuubi_builder = KyuubiChannelBuilder(
+            _kyuubi_builder = KyuubiSessionBuilder(
                 os.environ["SPARK_REMOTE"],
                 auth=os.environ.get("KYUUBI_AUTH", "kerberos"),
                 username=os.environ.get("KYUUBI_USERNAME"),
