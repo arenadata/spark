@@ -97,16 +97,18 @@ private[history] abstract class ApplicationHistoryProvider {
    *
    * @return List of all know applications.
    */
-  def getListing(): Iterator[ApplicationInfo]
+  def getListing(user: Option[String]): Iterator[ApplicationInfo]
 
   /**
    * Returns a list of applications available for the history server to show.
    *
+   * @param user The user try to list
    * @param max The maximum number of applications to return
    * @param predicate A function that filters the applications to be returned
    * @return An iterator of matching applications up to the specified maximum
    */
-  def getListing(max: Int)(predicate: ApplicationInfo => Boolean): Iterator[ApplicationInfo]
+  def getListing(user: Option[String], max: Int)
+                (predicate: ApplicationInfo => Boolean): Iterator[ApplicationInfo]
 
   /**
    * Returns the Spark UI for a specific application.
