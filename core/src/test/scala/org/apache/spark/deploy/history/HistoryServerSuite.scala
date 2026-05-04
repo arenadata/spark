@@ -611,8 +611,31 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
     init(
       "spark.ui.filters" -> classOf[FakeAuthFilter].getName(),
       "spark.history.ui.acls.enable" -> "true",
+      "spark.history.ui.acls.filterList" -> "true",
       "spark.history.ui.admin.acls" -> admin)
-    Seq((owner, 6), (admin, 10), (other, 0)).foreach { case (user, expectedApplicationsNum) =>
+    Seq((owner, 7), (admin, 16), (other, 1)).foreach { case (user, expectedApplicationsNum) =>
+      val (_, response, _) = getContentAndCode("applications", server.boundPort,
+        Seq(FakeAuthFilter.FAKE_HTTP_USER -> user))
+      assert(response.isDefined)
+      parse(response.get) match {
+        case apps: JArray =>
+          assert(apps.children.size == expectedApplicationsNum)
+        case _ => fail()
+      }
+    }
+  }
+
+  test("check that all applications in list if no spark.history.ui.acls.filterList set") {
+    val owner = "irashid"
+    val admin = "admin"
+    val other = "sam"
+
+    stop()
+    init(
+      "spark.ui.filters" -> classOf[FakeAuthFilter].getName(),
+      "spark.history.ui.acls.enable" -> "true",
+      "spark.history.ui.admin.acls" -> admin)
+    Seq((owner, 16), (admin, 16), (other, 16)).foreach { case (user, expectedApplicationsNum) =>
       val (_, response, _) = getContentAndCode("applications", server.boundPort,
         Seq(FakeAuthFilter.FAKE_HTTP_USER -> user))
       assert(response.isDefined)

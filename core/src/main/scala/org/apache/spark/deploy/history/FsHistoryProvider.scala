@@ -103,6 +103,7 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
   private val logDir = conf.get(History.HISTORY_LOG_DIR)
 
   private val historyUiAclsEnable = conf.get(History.HISTORY_SERVER_UI_ACLS_ENABLE)
+  private val historyUiAclsFilterListEnabled = conf.get(HISTORY_SERVER_UI_ACLS_FILTER_LIST)
   private val historyUiAdminAcls = conf.get(History.HISTORY_SERVER_UI_ADMIN_ACLS)
   private val historyUiAdminAclsGroups = conf.get(History.HISTORY_SERVER_UI_ADMIN_ACLS_GROUPS)
   logInfo(s"History server ui acls " + (if (historyUiAclsEnable) "enabled" else "disabled") +
@@ -315,6 +316,11 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
 
   /** Returns true if the given user is allowed to view the application. */
   private def isAuthorized(user: Option[String], appInfo: ApplicationInfoWrapper): Boolean = {
+    // If ACL-based list filtering is disabled, show all applications
+    if (!historyUiAclsFilterListEnabled) {
+      return true
+    }
+
     val attempt = appInfo.attempts.last
     val usersAcls = Set(attempt.info.sparkUser) ++ SecurityManager.stringToSet(
       historyUiAdminAcls.mkString(",") + "," + attempt.adminAcls.getOrElse("") + "," +
