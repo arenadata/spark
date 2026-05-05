@@ -378,6 +378,10 @@ jobs:
           GITHUB_USERNAME: ${{ github.actor }}
           SPARK_K8S_TEST_HOST_GATEWAY: 192.168.49.1
         run: |
+          PVC_TMP_DIR=$(mktemp -d)
+          export PVC_TESTS_HOST_PATH=$PVC_TMP_DIR
+          export PVC_TESTS_VM_PATH=$PVC_TMP_DIR
+          minikube mount ${PVC_TESTS_HOST_PATH}:${PVC_TESTS_VM_PATH} --gid=0 --uid=185 &          
           mkdir -p /tmp/k8s-debug
           nohup kubectl get events -A -w \
             -o 'custom-columns=TIME:.lastTimestamp,NS:.metadata.namespace,KIND:.involvedObject.kind,NAME:.involvedObject.name,REASON:.reason,MESSAGE:.message' \
@@ -389,6 +393,7 @@ jobs:
           ./build/mvn ${{ env.MAVEN_ARGS }} integration-test \
             -pl :spark-kubernetes-integration-tests_2.13 \
             ${{ env.SPARK_PROFILES }} -Pkubernetes-integration-tests \
+            -Dtest.exclude.tags=local \
             -Dspark.kubernetes.test.imageRepo=docker.io/library \
             -Dspark.kubernetes.test.imageTag=ci-test \
             -Dspark.kubernetes.test.deployMode=minikube \
