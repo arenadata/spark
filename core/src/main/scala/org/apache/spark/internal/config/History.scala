@@ -160,6 +160,12 @@ private[spark] object History {
     .booleanConf
     .createWithDefault(false)
 
+  val HISTORY_SERVER_UI_ACLS_FILTER_LIST = ConfigBuilder("spark.history.ui.acls.filterList")
+    .doc("Enable filtering of application list based on ACLs.")
+    .version("3.5.4")
+    .booleanConf
+    .createWithDefault(false)
+
   val HISTORY_SERVER_UI_ADMIN_ACLS = ConfigBuilder("spark.history.ui.admin.acls")
     .version("2.1.1")
     .stringConf

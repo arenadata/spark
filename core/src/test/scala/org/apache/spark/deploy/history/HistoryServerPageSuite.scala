@@ -91,7 +91,7 @@ class HistoryServerPageSuite extends SparkFunSuite with BeforeAndAfter {
       val page = new HistoryPage(server.get)
       Seq(true, false).foreach { requestedIncomplete =>
         val apiResponse = callApplicationsAPI(requestedIncomplete)
-        if (page.shouldDisplayApplications(requestedIncomplete)) {
+        if (page.shouldDisplayApplications(None, requestedIncomplete)) {
           assert(apiResponse.nonEmpty)
         } else {
           assert(apiResponse.isEmpty)

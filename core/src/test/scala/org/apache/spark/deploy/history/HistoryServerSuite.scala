@@ -541,7 +541,7 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
       assert(4 === getNumJobsRestful(), s"two jobs back-to-back not updated, server=$server\n")
     }
     val jobcount = getNumJobs("/jobs")
-    assert(!isApplicationCompleted(provider.getListing().next))
+    assert(!isApplicationCompleted(provider.getListing(None).next))
 
     listApplications(false) should contain(appId)
 
@@ -549,7 +549,7 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
     resetSparkContext()
     // check the app is now found as completed
     eventually(stdTimeout, stdInterval) {
-      assert(isApplicationCompleted(provider.getListing().next),
+      assert(isApplicationCompleted(provider.getListing(None).next),
         s"application never completed, server=$server\n")
     }
 
@@ -598,6 +598,51 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
         val headers = if (user != null) Seq(FakeAuthFilter.FAKE_HTTP_USER -> user) else Nil
         val sc = TestUtils.httpResponseCode(new URL(url), headers = headers)
         assert(sc === expectedCode, s"Unexpected status code $sc for $url (user = $user)")
+      }
+    }
+  }
+
+  test("show only applications which the users has the permission to read") {
+    val owner = "irashid"
+    val admin = "admin"
+    val other = "sam"
+
+    stop()
+    init(
+      "spark.ui.filters" -> classOf[FakeAuthFilter].getName(),
+      "spark.history.ui.acls.enable" -> "true",
+      "spark.history.ui.acls.filterList" -> "true",
+      "spark.history.ui.admin.acls" -> admin)
+    Seq((owner, 7), (admin, 16), (other, 1)).foreach { case (user, expectedApplicationsNum) =>
+      val (_, response, _) = getContentAndCode("applications", server.boundPort,
+        Seq(FakeAuthFilter.FAKE_HTTP_USER -> user))
+      assert(response.isDefined)
+      parse(response.get) match {
+        case apps: JArray =>
+          assert(apps.children.size == expectedApplicationsNum)
+        case _ => fail()
+      }
+    }
+  }
+
+  test("check that all applications in list if no spark.history.ui.acls.filterList set") {
+    val owner = "irashid"
+    val admin = "admin"
+    val other = "sam"
+
+    stop()
+    init(
+      "spark.ui.filters" -> classOf[FakeAuthFilter].getName(),
+      "spark.history.ui.acls.enable" -> "true",
+      "spark.history.ui.admin.acls" -> admin)
+    Seq((owner, 16), (admin, 16), (other, 16)).foreach { case (user, expectedApplicationsNum) =>
+      val (_, response, _) = getContentAndCode("applications", server.boundPort,
+        Seq(FakeAuthFilter.FAKE_HTTP_USER -> user))
+      assert(response.isDefined)
+      parse(response.get) match {
+        case apps: JArray =>
+          assert(apps.children.size == expectedApplicationsNum)
+        case _ => fail()
       }
     }
   }
@@ -663,8 +708,11 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
     }
   }
 
-  def getContentAndCode(path: String, port: Int = port): (Int, Option[String], Option[String]) = {
-    HistoryServerSuite.getContentAndCode(new URL(s"http://$localhost:$port/api/v1/$path"))
+  def getContentAndCode(
+      path: String,
+      port: Int = port,
+      headers: Seq[(String, String)] = Nil): (Int, Option[String], Option[String]) = {
+    HistoryServerSuite.getContentAndCode(new URL(s"http://localhost:$port/api/v1/$path"), headers)
   }
 
   def getUrl(path: String): String = {
@@ -729,15 +777,22 @@ object HistoryServerSuite {
     }
   }
 
-  def getContentAndCode(url: URL): (Int, Option[String], Option[String]) = {
-    val (code, in, errString) = connectAndGetInputStream(url)
-    val inString = in.map(IOUtils.toString(_, StandardCharsets.UTF_8))
+  def getContentAndCode(
+      url: URL,
+      headers: Seq[(String, String)] = Nil): (Int, Option[String], Option[String]) = {
+    val (code, in, errString) = connectAndGetInputStream(url, headers)
+    val inString = in.map(IOUtils.toString)
     (code, inString, errString)
   }
 
-  def connectAndGetInputStream(url: URL): (Int, Option[InputStream], Option[String]) = {
+  def connectAndGetInputStream(
+      url: URL,
+      headers: Seq[(String, String)] = Nil): (Int, Option[InputStream], Option[String]) = {
     val connection = url.openConnection().asInstanceOf[HttpURLConnection]
     connection.setRequestMethod("GET")
+    headers.foreach { case (key, value) =>
+      connection.addRequestProperty(key, value)
+    }
     connection.connect()
     val code = connection.getResponseCode()
     val inStream = try {

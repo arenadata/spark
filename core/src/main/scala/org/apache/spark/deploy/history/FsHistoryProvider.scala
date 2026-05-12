@@ -103,6 +103,7 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
   private val logDir = conf.get(History.HISTORY_LOG_DIR)
 
   private val historyUiAclsEnable = conf.get(History.HISTORY_SERVER_UI_ACLS_ENABLE)
+  private val historyUiAclsFilterListEnabled = conf.get(HISTORY_SERVER_UI_ACLS_FILTER_LIST)
   private val historyUiAdminAcls = conf.get(History.HISTORY_SERVER_UI_ADMIN_ACLS)
   private val historyUiAdminAclsGroups = conf.get(History.HISTORY_SERVER_UI_ADMIN_ACLS_GROUPS)
   logInfo(s"History server ui acls " + (if (historyUiAclsEnable) "enabled" else "disabled") +
@@ -294,18 +295,47 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
     }
   }
 
-  override def getListing(): Iterator[ApplicationInfo] = {
-    // Return the listing in end time descending order.
-    KVUtils.mapToSeq(listing.view(classOf[ApplicationInfoWrapper])
-      .index("endTime").reverse())(_.toApplicationInfo()).iterator
+  override def getListing(user: Option[String]): Iterator[ApplicationInfo] = {
+    KVUtils.viewToSeq(
+        listing.view(classOf[ApplicationInfoWrapper]).index("endTime").reverse(),
+        Int.MaxValue
+      ) { appInfo => isAuthorized(user, appInfo) }
+      .map(_.toApplicationInfo())
+      .iterator
   }
 
-  override def getListing(max: Int)(
-      predicate: ApplicationInfo => Boolean): Iterator[ApplicationInfo] = {
-    // Return the filtered listing in end time descending order.
-    KVUtils.mapToSeqWithFilter(
-      listing.view(classOf[ApplicationInfoWrapper]).index("endTime").reverse(),
-      max)(_.toApplicationInfo())(predicate).iterator
+  override def getListing(user: Option[String], max: Int)(
+    predicate: ApplicationInfo => Boolean): Iterator[ApplicationInfo] = {
+    KVUtils.viewToSeq(
+        listing.view(classOf[ApplicationInfoWrapper]).index("endTime").reverse(),
+        max
+      ) { appInfo => isAuthorized(user, appInfo) && predicate(appInfo.toApplicationInfo()) }
+      .map(_.toApplicationInfo())
+      .iterator
+  }
+
+  /** Returns true if the given user is allowed to view the application. */
+  private def isAuthorized(user: Option[String], appInfo: ApplicationInfoWrapper): Boolean = {
+    // If ACL-based list filtering is disabled, show all applications
+    if (!historyUiAclsFilterListEnabled) {
+      return true
+    }
+
+    val attempt = appInfo.attempts.last
+    val usersAcls = Set(attempt.info.sparkUser) ++ SecurityManager.stringToSet(
+      historyUiAdminAcls.mkString(",") + "," + attempt.adminAcls.getOrElse("") + "," +
+        attempt.viewAcls.getOrElse(""))
+    val groupAcls = Set(attempt.info.sparkUser) ++ SecurityManager.stringToSet(
+      historyUiAdminAclsGroups.mkString(",") + "," +
+        attempt.adminAclsGroups.getOrElse("") + "," +
+        attempt.viewAclsGroups.getOrElse(""))
+    SecurityManager.checkApplicationViewPermissions(
+      user.orNull,
+      historyUiAclsEnable,
+      usersAcls,
+      groupAcls,
+      this.conf
+    )
   }
 
   override def getApplicationInfo(appId: String): Option[ApplicationInfo] = {
