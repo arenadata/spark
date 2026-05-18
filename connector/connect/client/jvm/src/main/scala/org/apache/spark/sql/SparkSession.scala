@@ -74,6 +74,11 @@ class SparkSession private[sql] (
 
   private[this] val allocator = new RootAllocator()
 
+  /**
+   * Set to false to prevent client.releaseSession on close() (testing only)
+   */
+  private[sql] var releaseSessionOnClose = true
+
   // a unique session ID for this session from client.
   private[sql] def sessionId: String = client.sessionId
 
@@ -664,7 +669,18 @@ class SparkSession private[sql] (
    * @since 3.4.0
    */
   override def close(): Unit = {
-    client.shutdown()
+    if (releaseSessionOnClose) {
+      try {
+        client.releaseSession()
+      } catch {
+        case e: Exception => logWarning("session.stop: Failed to release session", e)
+      }
+    }
+    try {
+      client.shutdown()
+    } catch {
+      case e: Exception => logWarning("session.stop: Failed to shutdown the client", e)
+    }
     allocator.close()
     SparkSession.onSessionClose(this)
   }

@@ -22,7 +22,8 @@ from pyspark.sql.connect.proto import base_pb2 as spark_dot_connect_dot_base__pb
 
 
 class SparkConnectServiceStub(object):
-    """Main interface for the SparkConnect service."""
+    """Main interface for the SparkConnect service.
+    """
 
     def __init__(self, channel):
         """Constructor.
@@ -31,49 +32,55 @@ class SparkConnectServiceStub(object):
             channel: A grpc.Channel.
         """
         self.ExecutePlan = channel.unary_stream(
-            "/spark.connect.SparkConnectService/ExecutePlan",
-            request_serializer=spark_dot_connect_dot_base__pb2.ExecutePlanRequest.SerializeToString,
-            response_deserializer=spark_dot_connect_dot_base__pb2.ExecutePlanResponse.FromString,
-        )
+                '/spark.connect.SparkConnectService/ExecutePlan',
+                request_serializer=spark_dot_connect_dot_base__pb2.ExecutePlanRequest.SerializeToString,
+                response_deserializer=spark_dot_connect_dot_base__pb2.ExecutePlanResponse.FromString,
+                )
         self.AnalyzePlan = channel.unary_unary(
-            "/spark.connect.SparkConnectService/AnalyzePlan",
-            request_serializer=spark_dot_connect_dot_base__pb2.AnalyzePlanRequest.SerializeToString,
-            response_deserializer=spark_dot_connect_dot_base__pb2.AnalyzePlanResponse.FromString,
-        )
+                '/spark.connect.SparkConnectService/AnalyzePlan',
+                request_serializer=spark_dot_connect_dot_base__pb2.AnalyzePlanRequest.SerializeToString,
+                response_deserializer=spark_dot_connect_dot_base__pb2.AnalyzePlanResponse.FromString,
+                )
         self.Config = channel.unary_unary(
-            "/spark.connect.SparkConnectService/Config",
-            request_serializer=spark_dot_connect_dot_base__pb2.ConfigRequest.SerializeToString,
-            response_deserializer=spark_dot_connect_dot_base__pb2.ConfigResponse.FromString,
-        )
+                '/spark.connect.SparkConnectService/Config',
+                request_serializer=spark_dot_connect_dot_base__pb2.ConfigRequest.SerializeToString,
+                response_deserializer=spark_dot_connect_dot_base__pb2.ConfigResponse.FromString,
+                )
         self.AddArtifacts = channel.stream_unary(
-            "/spark.connect.SparkConnectService/AddArtifacts",
-            request_serializer=spark_dot_connect_dot_base__pb2.AddArtifactsRequest.SerializeToString,
-            response_deserializer=spark_dot_connect_dot_base__pb2.AddArtifactsResponse.FromString,
-        )
+                '/spark.connect.SparkConnectService/AddArtifacts',
+                request_serializer=spark_dot_connect_dot_base__pb2.AddArtifactsRequest.SerializeToString,
+                response_deserializer=spark_dot_connect_dot_base__pb2.AddArtifactsResponse.FromString,
+                )
         self.ArtifactStatus = channel.unary_unary(
-            "/spark.connect.SparkConnectService/ArtifactStatus",
-            request_serializer=spark_dot_connect_dot_base__pb2.ArtifactStatusesRequest.SerializeToString,
-            response_deserializer=spark_dot_connect_dot_base__pb2.ArtifactStatusesResponse.FromString,
-        )
+                '/spark.connect.SparkConnectService/ArtifactStatus',
+                request_serializer=spark_dot_connect_dot_base__pb2.ArtifactStatusesRequest.SerializeToString,
+                response_deserializer=spark_dot_connect_dot_base__pb2.ArtifactStatusesResponse.FromString,
+                )
         self.Interrupt = channel.unary_unary(
-            "/spark.connect.SparkConnectService/Interrupt",
-            request_serializer=spark_dot_connect_dot_base__pb2.InterruptRequest.SerializeToString,
-            response_deserializer=spark_dot_connect_dot_base__pb2.InterruptResponse.FromString,
-        )
+                '/spark.connect.SparkConnectService/Interrupt',
+                request_serializer=spark_dot_connect_dot_base__pb2.InterruptRequest.SerializeToString,
+                response_deserializer=spark_dot_connect_dot_base__pb2.InterruptResponse.FromString,
+                )
         self.ReattachExecute = channel.unary_stream(
-            "/spark.connect.SparkConnectService/ReattachExecute",
-            request_serializer=spark_dot_connect_dot_base__pb2.ReattachExecuteRequest.SerializeToString,
-            response_deserializer=spark_dot_connect_dot_base__pb2.ExecutePlanResponse.FromString,
-        )
+                '/spark.connect.SparkConnectService/ReattachExecute',
+                request_serializer=spark_dot_connect_dot_base__pb2.ReattachExecuteRequest.SerializeToString,
+                response_deserializer=spark_dot_connect_dot_base__pb2.ExecutePlanResponse.FromString,
+                )
         self.ReleaseExecute = channel.unary_unary(
-            "/spark.connect.SparkConnectService/ReleaseExecute",
-            request_serializer=spark_dot_connect_dot_base__pb2.ReleaseExecuteRequest.SerializeToString,
-            response_deserializer=spark_dot_connect_dot_base__pb2.ReleaseExecuteResponse.FromString,
-        )
+                '/spark.connect.SparkConnectService/ReleaseExecute',
+                request_serializer=spark_dot_connect_dot_base__pb2.ReleaseExecuteRequest.SerializeToString,
+                response_deserializer=spark_dot_connect_dot_base__pb2.ReleaseExecuteResponse.FromString,
+                )
+        self.ReleaseSession = channel.unary_unary(
+                '/spark.connect.SparkConnectService/ReleaseSession',
+                request_serializer=spark_dot_connect_dot_base__pb2.ReleaseSessionRequest.SerializeToString,
+                response_deserializer=spark_dot_connect_dot_base__pb2.ReleaseSessionResponse.FromString,
+                )
 
 
 class SparkConnectServiceServicer(object):
-    """Main interface for the SparkConnect service."""
+    """Main interface for the SparkConnect service.
+    """
 
     def ExecutePlan(self, request, context):
         """Executes a request that contains the query and returns a stream of [[Response]].
@@ -81,40 +88,44 @@ class SparkConnectServiceServicer(object):
         It is guaranteed that there is at least one ARROW batch returned even if the result set is empty.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def AnalyzePlan(self, request, context):
-        """Analyzes a query and returns a [[AnalyzeResponse]] containing metadata about the query."""
+        """Analyzes a query and returns a [[AnalyzeResponse]] containing metadata about the query.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def Config(self, request, context):
-        """Update or fetch the configurations and returns a [[ConfigResponse]] containing the result."""
+        """Update or fetch the configurations and returns a [[ConfigResponse]] containing the result.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def AddArtifacts(self, request_iterator, context):
         """Add artifacts to the session and returns a [[AddArtifactsResponse]] containing metadata about
         the added artifacts.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def ArtifactStatus(self, request, context):
-        """Check statuses of artifacts in the session and returns them in a [[ArtifactStatusesResponse]]"""
+        """Check statuses of artifacts in the session and returns them in a [[ArtifactStatusesResponse]]
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def Interrupt(self, request, context):
-        """Interrupts running executions"""
+        """Interrupts running executions
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def ReattachExecute(self, request, context):
         """Reattach to an existing reattachable execution.
@@ -123,8 +134,8 @@ class SparkConnectServiceServicer(object):
         continue. If there is a ResultComplete, the client should use ReleaseExecute with
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def ReleaseExecute(self, request, context):
         """Release an reattachable execution, or parts thereof.
@@ -133,291 +144,224 @@ class SparkConnectServiceServicer(object):
         RPC and ReleaseExecute may not be used.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReleaseSession(self, request, context):
+        """Releases the session and all associated resources on the server side.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
 
 def add_SparkConnectServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-        "ExecutePlan": grpc.unary_stream_rpc_method_handler(
-            servicer.ExecutePlan,
-            request_deserializer=spark_dot_connect_dot_base__pb2.ExecutePlanRequest.FromString,
-            response_serializer=spark_dot_connect_dot_base__pb2.ExecutePlanResponse.SerializeToString,
-        ),
-        "AnalyzePlan": grpc.unary_unary_rpc_method_handler(
-            servicer.AnalyzePlan,
-            request_deserializer=spark_dot_connect_dot_base__pb2.AnalyzePlanRequest.FromString,
-            response_serializer=spark_dot_connect_dot_base__pb2.AnalyzePlanResponse.SerializeToString,
-        ),
-        "Config": grpc.unary_unary_rpc_method_handler(
-            servicer.Config,
-            request_deserializer=spark_dot_connect_dot_base__pb2.ConfigRequest.FromString,
-            response_serializer=spark_dot_connect_dot_base__pb2.ConfigResponse.SerializeToString,
-        ),
-        "AddArtifacts": grpc.stream_unary_rpc_method_handler(
-            servicer.AddArtifacts,
-            request_deserializer=spark_dot_connect_dot_base__pb2.AddArtifactsRequest.FromString,
-            response_serializer=spark_dot_connect_dot_base__pb2.AddArtifactsResponse.SerializeToString,
-        ),
-        "ArtifactStatus": grpc.unary_unary_rpc_method_handler(
-            servicer.ArtifactStatus,
-            request_deserializer=spark_dot_connect_dot_base__pb2.ArtifactStatusesRequest.FromString,
-            response_serializer=spark_dot_connect_dot_base__pb2.ArtifactStatusesResponse.SerializeToString,
-        ),
-        "Interrupt": grpc.unary_unary_rpc_method_handler(
-            servicer.Interrupt,
-            request_deserializer=spark_dot_connect_dot_base__pb2.InterruptRequest.FromString,
-            response_serializer=spark_dot_connect_dot_base__pb2.InterruptResponse.SerializeToString,
-        ),
-        "ReattachExecute": grpc.unary_stream_rpc_method_handler(
-            servicer.ReattachExecute,
-            request_deserializer=spark_dot_connect_dot_base__pb2.ReattachExecuteRequest.FromString,
-            response_serializer=spark_dot_connect_dot_base__pb2.ExecutePlanResponse.SerializeToString,
-        ),
-        "ReleaseExecute": grpc.unary_unary_rpc_method_handler(
-            servicer.ReleaseExecute,
-            request_deserializer=spark_dot_connect_dot_base__pb2.ReleaseExecuteRequest.FromString,
-            response_serializer=spark_dot_connect_dot_base__pb2.ReleaseExecuteResponse.SerializeToString,
-        ),
+            'ExecutePlan': grpc.unary_stream_rpc_method_handler(
+                    servicer.ExecutePlan,
+                    request_deserializer=spark_dot_connect_dot_base__pb2.ExecutePlanRequest.FromString,
+                    response_serializer=spark_dot_connect_dot_base__pb2.ExecutePlanResponse.SerializeToString,
+            ),
+            'AnalyzePlan': grpc.unary_unary_rpc_method_handler(
+                    servicer.AnalyzePlan,
+                    request_deserializer=spark_dot_connect_dot_base__pb2.AnalyzePlanRequest.FromString,
+                    response_serializer=spark_dot_connect_dot_base__pb2.AnalyzePlanResponse.SerializeToString,
+            ),
+            'Config': grpc.unary_unary_rpc_method_handler(
+                    servicer.Config,
+                    request_deserializer=spark_dot_connect_dot_base__pb2.ConfigRequest.FromString,
+                    response_serializer=spark_dot_connect_dot_base__pb2.ConfigResponse.SerializeToString,
+            ),
+            'AddArtifacts': grpc.stream_unary_rpc_method_handler(
+                    servicer.AddArtifacts,
+                    request_deserializer=spark_dot_connect_dot_base__pb2.AddArtifactsRequest.FromString,
+                    response_serializer=spark_dot_connect_dot_base__pb2.AddArtifactsResponse.SerializeToString,
+            ),
+            'ArtifactStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.ArtifactStatus,
+                    request_deserializer=spark_dot_connect_dot_base__pb2.ArtifactStatusesRequest.FromString,
+                    response_serializer=spark_dot_connect_dot_base__pb2.ArtifactStatusesResponse.SerializeToString,
+            ),
+            'Interrupt': grpc.unary_unary_rpc_method_handler(
+                    servicer.Interrupt,
+                    request_deserializer=spark_dot_connect_dot_base__pb2.InterruptRequest.FromString,
+                    response_serializer=spark_dot_connect_dot_base__pb2.InterruptResponse.SerializeToString,
+            ),
+            'ReattachExecute': grpc.unary_stream_rpc_method_handler(
+                    servicer.ReattachExecute,
+                    request_deserializer=spark_dot_connect_dot_base__pb2.ReattachExecuteRequest.FromString,
+                    response_serializer=spark_dot_connect_dot_base__pb2.ExecutePlanResponse.SerializeToString,
+            ),
+            'ReleaseExecute': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReleaseExecute,
+                    request_deserializer=spark_dot_connect_dot_base__pb2.ReleaseExecuteRequest.FromString,
+                    response_serializer=spark_dot_connect_dot_base__pb2.ReleaseExecuteResponse.SerializeToString,
+            ),
+            'ReleaseSession': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReleaseSession,
+                    request_deserializer=spark_dot_connect_dot_base__pb2.ReleaseSessionRequest.FromString,
+                    response_serializer=spark_dot_connect_dot_base__pb2.ReleaseSessionResponse.SerializeToString,
+            ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-        "spark.connect.SparkConnectService", rpc_method_handlers
-    )
+            'spark.connect.SparkConnectService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
-# This class is part of an EXPERIMENTAL API.
+ # This class is part of an EXPERIMENTAL API.
 class SparkConnectService(object):
-    """Main interface for the SparkConnect service."""
+    """Main interface for the SparkConnect service.
+    """
 
     @staticmethod
-    def ExecutePlan(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_stream(
-            request,
+    def ExecutePlan(request,
             target,
-            "/spark.connect.SparkConnectService/ExecutePlan",
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/spark.connect.SparkConnectService/ExecutePlan',
             spark_dot_connect_dot_base__pb2.ExecutePlanRequest.SerializeToString,
             spark_dot_connect_dot_base__pb2.ExecutePlanResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def AnalyzePlan(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
+    def AnalyzePlan(request,
             target,
-            "/spark.connect.SparkConnectService/AnalyzePlan",
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/spark.connect.SparkConnectService/AnalyzePlan',
             spark_dot_connect_dot_base__pb2.AnalyzePlanRequest.SerializeToString,
             spark_dot_connect_dot_base__pb2.AnalyzePlanResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def Config(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
+    def Config(request,
             target,
-            "/spark.connect.SparkConnectService/Config",
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/spark.connect.SparkConnectService/Config',
             spark_dot_connect_dot_base__pb2.ConfigRequest.SerializeToString,
             spark_dot_connect_dot_base__pb2.ConfigResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def AddArtifacts(
-        request_iterator,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.stream_unary(
-            request_iterator,
+    def AddArtifacts(request_iterator,
             target,
-            "/spark.connect.SparkConnectService/AddArtifacts",
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_unary(request_iterator, target, '/spark.connect.SparkConnectService/AddArtifacts',
             spark_dot_connect_dot_base__pb2.AddArtifactsRequest.SerializeToString,
             spark_dot_connect_dot_base__pb2.AddArtifactsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def ArtifactStatus(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
+    def ArtifactStatus(request,
             target,
-            "/spark.connect.SparkConnectService/ArtifactStatus",
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/spark.connect.SparkConnectService/ArtifactStatus',
             spark_dot_connect_dot_base__pb2.ArtifactStatusesRequest.SerializeToString,
             spark_dot_connect_dot_base__pb2.ArtifactStatusesResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def Interrupt(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
+    def Interrupt(request,
             target,
-            "/spark.connect.SparkConnectService/Interrupt",
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/spark.connect.SparkConnectService/Interrupt',
             spark_dot_connect_dot_base__pb2.InterruptRequest.SerializeToString,
             spark_dot_connect_dot_base__pb2.InterruptResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def ReattachExecute(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_stream(
-            request,
+    def ReattachExecute(request,
             target,
-            "/spark.connect.SparkConnectService/ReattachExecute",
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/spark.connect.SparkConnectService/ReattachExecute',
             spark_dot_connect_dot_base__pb2.ReattachExecuteRequest.SerializeToString,
             spark_dot_connect_dot_base__pb2.ExecutePlanResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def ReleaseExecute(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
+    def ReleaseExecute(request,
             target,
-            "/spark.connect.SparkConnectService/ReleaseExecute",
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/spark.connect.SparkConnectService/ReleaseExecute',
             spark_dot_connect_dot_base__pb2.ReleaseExecuteRequest.SerializeToString,
             spark_dot_connect_dot_base__pb2.ReleaseExecuteResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ReleaseSession(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/spark.connect.SparkConnectService/ReleaseSession',
+            spark_dot_connect_dot_base__pb2.ReleaseSessionRequest.SerializeToString,
+            spark_dot_connect_dot_base__pb2.ReleaseSessionResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
