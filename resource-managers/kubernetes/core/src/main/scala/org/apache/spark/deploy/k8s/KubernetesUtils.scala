@@ -140,7 +140,12 @@ object KubernetesUtils extends Logging {
   }
 
   @Since("2.4.0")
-  def parseMasterUrl(url: String): String = url.substring("k8s://".length)
+  def parseMasterUrl(url: String): String = {
+    if (url.startsWith("k8s://")) {
+      return url.substring("k8s://".length)
+    }
+    "k8s"
+  }
 
   @Since("3.0.0")
   def formatPairsBundle(pairs: Seq[(String, String)], indent: Int = 1) : String = {

@@ -88,7 +88,9 @@ private[spark] object SparkKubernetesClientFactory extends Logging {
     // explicit setting pass null
     val config = new ConfigBuilder(autoConfigure(kubeContext.orNull))
       .withApiVersion("v1")
-      .withMasterUrl(master)
+      .withOption(Option(master).filter(_ != "k8s")) { (url, configBuilder) =>
+        configBuilder.withMasterUrl(url)
+      }
       .withRequestTimeout(clientType.requestTimeout(sparkConf))
       .withConnectionTimeout(clientType.connectionTimeout(sparkConf))
       .withTrustCerts(sparkConf.get(KUBERNETES_TRUST_CERTIFICATES))

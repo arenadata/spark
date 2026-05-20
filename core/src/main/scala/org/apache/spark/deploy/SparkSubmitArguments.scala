@@ -543,7 +543,7 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
       s"""
         |Options:
         |  --master MASTER_URL         spark://host:port, mesos://host:port, yarn,
-        |                              k8s://https://host:port, or local (Default: local[*]).
+        |                              k8s://https://host:port, k8s, or local (Default: local[*]).
         |  --deploy-mode DEPLOY_MODE   Whether to launch the driver program locally ("client") or
         |                              on one of the worker machines inside the cluster ("cluster")
         |                              (Default: client).

@@ -90,6 +90,12 @@ private[spark] trait BasicTestsSuite { k8sSuite: KubernetesSuite =>
     runSparkPiAndVerifyCompletion()
   }
 
+  test("Run SparkPi with a master k8s without a URL.", k8sTestTag) {
+    val k8sMasterUrl = s"k8s"
+    sparkAppConf.set("spark.master", k8sMasterUrl)
+    runSparkPiAndVerifyCompletion()
+  }
+
   test("Run SparkPi with an argument.", k8sTestTag) {
     // This additional configuration with snappy is for SPARK-26995
     sparkAppConf

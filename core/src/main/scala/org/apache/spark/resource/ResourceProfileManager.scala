@@ -53,7 +53,7 @@ private[spark] class ResourceProfileManager(sparkConf: SparkConf,
   private val dynamicEnabled = Utils.isDynamicAllocationEnabled(sparkConf)
   private val master = sparkConf.getOption("spark.master")
   private val isYarn = master.isDefined && master.get.equals("yarn")
-  private val isK8s = master.isDefined && master.get.startsWith("k8s://")
+  private val isK8s = master.isDefined && master.get.startsWith("k8s")
   private val isStandaloneOrLocalCluster = master.isDefined && (
       master.get.startsWith("spark://") || master.get.startsWith("local-cluster")
     )

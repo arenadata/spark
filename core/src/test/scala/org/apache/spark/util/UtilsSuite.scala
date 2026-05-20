@@ -1317,6 +1317,9 @@ class UtilsSuite extends SparkFunSuite with ResetSystemProperties {
     val k8sMasterURLWithoutScheme2 = Utils.checkAndGetK8sMasterUrl("k8s://127.0.0.1")
     assert(k8sMasterURLWithoutScheme2 === "k8s://https://127.0.0.1")
 
+    val k8sMasterURLWithoutAddress = Utils.checkAndGetK8sMasterUrl("k8s")
+    assert(k8sMasterURLWithoutAddress === "k8s")
+
     intercept[IllegalArgumentException] {
       Utils.checkAndGetK8sMasterUrl("k8s:https://host:port")
     }
