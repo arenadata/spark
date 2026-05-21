@@ -440,6 +440,13 @@ jobs:
           path: '**/target/surefire-reports/'
           if-no-files-found: ignore
 
+      - name: Upload Spark on K8S integration tests log files
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spark-on-kubernetes-it-log
+          path: "**/target/integration-tests.log"
+
   tpcds-1g:
     name: TPC-DS (SF=1)
     runs-on: ubuntu-24.04
