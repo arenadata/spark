@@ -47,11 +47,11 @@
   </resolvers>
 
   <modules>
-    <module organisation="org.apache.hive"      revision="*-4.3.0-0" matcher="glob" resolver="arenadata"/>
-    <module organisation="org.apache.hive.hcatalog" revision="*-4.3.0-0" matcher="glob" resolver="arenadata"/>
-    <module organisation="org.apache.hadoop"    revision="*-4.3.0-0" matcher="glob" resolver="arenadata"/>
-    <module organisation="org.apache.zookeeper" revision="*-4.3.0-0" matcher="glob" resolver="arenadata"/>
-    <module organisation="org.apache.curator"   revision="*-4.3.0-0" matcher="glob" resolver="arenadata"/>
-    <module organisation="org.apache.hbase"     revision="*-4.3.0-0" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.hive"      revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.hive.hcatalog" revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.hadoop"    revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.zookeeper" revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.curator"   revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.hbase"     revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
   </modules>
 </ivysettings>
