@@ -18,12 +18,15 @@ package org.apache.spark.deploy.k8s.integrationtest
 
 import java.io.File
 import java.net.URI
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
 import scala.jdk.CollectionConverters._
 
 import io.fabric8.kubernetes.api.model._
 import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder
+import io.fabric8.kubernetes.api.model.SecretBuilder
+import org.apache.commons.codec.binary.Base64
 import org.apache.hadoop.util.VersionInfo
 import org.scalatest.concurrent.{Eventually, PatienceConfiguration}
 import org.scalatest.time.{Minutes, Span}
@@ -50,6 +53,7 @@ private[spark] trait DepsTestsSuite { k8sSuite: KubernetesSuite =>
   val ACCESS_KEY = "minio"
   val SECRET_KEY = "miniostorage"
   val REGION = "us-west-2"
+  val ivySecretName = "ivy-secret"
 
   private def getMinioContainer(): Container = {
     val envVars = Map (
@@ -162,6 +166,50 @@ private[spark] trait DepsTestsSuite { k8sSuite: KubernetesSuite =>
       .inNamespace(kubernetesTestComponents.namespace)
       .withName(svcName)
       .withGracePeriod(0)
+      .delete()
+  }
+
+  private def setupIvySecret(): Unit = {
+    val ivySource = new File(sparkHomeDir.resolve("dev/ivysettings.xml").toString)
+
+    // Read original file content
+    val content = new String(Files.readAllBytes(ivySource.toPath), StandardCharsets.UTF_8)
+
+    // Fetch GitHub credentials from environment (or system properties / test config)
+    val githubUser = sys.env.getOrElse("GITHUB_USERNAME",
+      throw new IllegalStateException("GITHUB_USERNAME env var not set"))
+    val githubToken = sys.env.getOrElse("GITHUB_TOKEN",
+      throw new IllegalStateException("GITHUB_TOKEN env var not set"))
+
+    // Replace Ivy environment variable references with literal values
+    val replaced = content
+      .replace("${env.GITHUB_USERNAME}", githubUser)
+      .replace("${env.GITHUB_TOKEN}", githubToken)
+
+    // Build Secret with the concrete, substituted content
+    val ivySecret = new SecretBuilder()
+      .withNewMetadata()
+      .withName(ivySecretName)
+      .endMetadata()
+      .addToData("ivysettings.xml",
+        Base64.encodeBase64String(replaced.getBytes(StandardCharsets.UTF_8)))
+      .build()
+
+    Eventually.eventually(TIMEOUT, INTERVAL) {
+      kubernetesTestComponents
+        .kubernetesClient
+        .secrets()
+        .inNamespace(kubernetesTestComponents.namespace)
+        .create(ivySecret)
+    }
+  }
+
+  private def deleteIvySecret(): Unit = {
+    kubernetesTestComponents
+      .kubernetesClient
+      .secrets()
+      .inNamespace(kubernetesTestComponents.namespace)
+      .withName(ivySecretName)
       .delete()
   }
 
@@ -387,7 +435,9 @@ private[spark] trait DepsTestsSuite { k8sSuite: KubernetesSuite =>
       .set("spark.kubernetes.file.upload.path", s"s3a://$BUCKET")
       .set("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
       .set("spark.jars.packages", packages)
-      .set("spark.jars.ivy", "/tmp")
+      .set("spark.jars.ivySettings", sparkHomeDir.resolve("dev/ivysettings.xml").toString)
+      .set("spark.kubernetes.driver.secrets."+ivySecretName, sparkHomeDir.resolve("dev").toString)
+      .set("spark.driver.extraJavaOptions", "-Divy.cache.dir=/tmp -Divy.home=/tmp")
   }
 
   private def tryDepsTest(runTest: => Unit): Unit = {
@@ -396,10 +446,12 @@ private[spark] trait DepsTestsSuite { k8sSuite: KubernetesSuite =>
       val minioUrlStr = getServiceUrl(svcName)
       createS3Bucket(ACCESS_KEY, SECRET_KEY, minioUrlStr)
       setCommonSparkConfPropertiesForS3Access(sparkAppConf, minioUrlStr)
+      setupIvySecret()
       runTest
     } finally {
       // make sure this always runs
       deleteMinioStorage()
+      deleteIvySecret()
     }
   }
 }

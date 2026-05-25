@@ -33,7 +33,7 @@ import org.apache.hadoop.fs.{LocalFileSystem, Path => FSPath}
 
 import org.apache.spark.{JobArtifactSet, JobArtifactState, SparkContext, SparkEnv, SparkException, SparkRuntimeException, SparkUnsupportedOperationException}
 import org.apache.spark.internal.{Logging, LogKeys}
-import org.apache.spark.internal.config.{CONNECT_SCALA_UDF_STUB_PREFIXES, EXECUTOR_USER_CLASS_PATH_FIRST}
+import org.apache.spark.internal.config.{CONNECT_SCALA_UDF_STUB_PREFIXES, EXECUTOR_USER_CLASS_PATH_FIRST, SPARK_ARTIFACTORY_DIR_PATH}
 import org.apache.spark.sql.Artifact
 import org.apache.spark.sql.classic.SparkSession
 import org.apache.spark.sql.internal.SQLConf
@@ -63,7 +63,8 @@ class ArtifactManager(session: SparkSession) extends AutoCloseable with Logging 
     .get
     .rpcEnv
     .fileServer
-    .addDirectoryIfAbsent(ARTIFACT_DIRECTORY_PREFIX, artifactRootPath.toFile)
+    .addDirectoryIfAbsent(SparkEnv.get.conf.get(SPARK_ARTIFACTORY_DIR_PATH),
+      artifactRootPath.toFile)
 
   // The base directory/URI where all artifacts are stored for this `sessionUUID`.
   protected[artifact] val (artifactPath, artifactURI): (Path, String) =
@@ -529,10 +530,8 @@ object ArtifactManager extends Logging {
 
   val forwardToFSPrefix = "forward_to_fs"
 
-  val ARTIFACT_DIRECTORY_PREFIX = "artifacts"
-
   private[artifact] lazy val artifactRootDirectory =
-    Utils.createTempDir(namePrefix = ARTIFACT_DIRECTORY_PREFIX).toPath
+    Utils.createTempDir(SparkEnv.get.conf.get(SPARK_ARTIFACTORY_DIR_PATH)).toPath
 
   private[artifact] object SparkContextResourceType extends Enumeration {
     type ResourceType = Value

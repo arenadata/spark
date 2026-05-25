@@ -64,7 +64,7 @@ SCALA_BINARY_VERSION=$($MVN -q \
     -Dexec.executable="echo" \
     -Dexec.args='${scala.binary.version}' \
     --non-recursive \
-    org.codehaus.mojo:exec-maven-plugin:${MVN_EXEC_PLUGIN_VERSION}:exec | grep -E '[0-9]+\.[0-9]+')
+    org.codehaus.mojo:exec-maven-plugin:${MVN_EXEC_PLUGIN_VERSION}:exec 2>/dev/null | tail -1 | grep -E '[0-9]+\.[0-9]+')
 if [[ "$SCALA_BINARY_VERSION" != "2.13" ]]; then
   echo "Skip dependency testing on $SCALA_BINARY_VERSION"
   exit 0

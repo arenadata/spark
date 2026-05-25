@@ -1,0 +1,57 @@
+<ivysettings>
+  <settings defaultResolver="default-chain"/>
+
+  <property name="local-maven2-dir" value="${user.home}/.m2/repository/"/>
+  <property name="ivy-default-local-dir" value="${ivy.home}/local"/>
+
+  <property name="ghpkg.user"  value="${env.GITHUB_USERNAME}" override="false"/>
+  <property name="ghpkg.token" value="${env.GITHUB_TOKEN}"    override="false"/>
+
+  <credentials host="maven.pkg.github.com"
+               realm="GitHub Package Registry"
+               username="${ghpkg.user}"
+               passwd="${ghpkg.token}"/>
+
+  <resolvers>
+    <ibiblio name="central" m2compatible="true"
+             root="https://repo.maven.apache.org/maven2"/>
+    <ibiblio name="gcs-maven-central-mirror" m2compatible="true"
+             root="https://maven-central.storage-download.googleapis.com/maven2/"/>
+
+    <filesystem name="local" local="true">
+      <artifact pattern="${ivy-default-local-dir}/[organisation]/[module]/[revision]/[type]s/[artifact](-[classifier]).[ext]"/>
+      <ivy      pattern="${ivy-default-local-dir}/[organisation]/[module]/[revision]/[ivy].xml"/>
+    </filesystem>
+
+    <filesystem name="local-maven-2" m2compatible="true" local="true">
+      <artifact pattern="${local-maven2-dir}/[organisation]/[module]/[revision]/[module]-[revision](-[classifier]).[ext]"/>
+      <ivy      pattern="${local-maven2-dir}/[organisation]/[module]/[revision]/[module]-[revision].pom"/>
+    </filesystem>
+
+    <chain name="arenadata" returnFirst="true">
+      <resolver ref="local"/>
+      <resolver ref="local-maven-2"/>
+      <ibiblio name="arenadata-hadoop"    m2compatible="true" root="https://maven.pkg.github.com/arenadata/hadoop"/>
+      <ibiblio name="arenadata-hive"      m2compatible="true" root="https://maven.pkg.github.com/arenadata/hive"/>
+      <ibiblio name="arenadata-zookeeper" m2compatible="true" root="https://maven.pkg.github.com/arenadata/zookeeper"/>
+      <ibiblio name="arenadata-curator"   m2compatible="true" root="https://maven.pkg.github.com/arenadata/curator"/>
+      <ibiblio name="arenadata-hbase"     m2compatible="true" root="https://maven.pkg.github.com/arenadata/hbase"/>
+    </chain>
+
+    <chain name="default-chain" returnFirst="true" checkmodified="true" changingPattern=".*SNAPSHOT">
+      <resolver ref="local"/>
+      <resolver ref="local-maven-2"/>
+      <resolver ref="gcs-maven-central-mirror"/>
+      <resolver ref="central"/>
+    </chain>
+  </resolvers>
+
+  <modules>
+    <module organisation="org.apache.hive"      revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.hive.hcatalog" revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.hadoop"    revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.zookeeper" revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.curator"   revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.hbase"     revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+  </modules>
+</ivysettings>

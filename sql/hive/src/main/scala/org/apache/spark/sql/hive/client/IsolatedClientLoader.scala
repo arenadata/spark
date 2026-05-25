@@ -65,7 +65,7 @@ private[hive] object IsolatedClientLoader extends Logging {
           case e: RuntimeException if e.getMessage.contains("hadoop") =>
             // If the error message contains hadoop, it is probably because the hadoop
             // version cannot be resolved.
-            val fallbackVersion = "3.5.0"
+            val fallbackVersion = "3.3.4"
             logWarning(log"Failed to resolve Hadoop artifacts for the version " +
               log"${MDC(HADOOP_VERSION, hadoopVersion)}. We will change the hadoop version from " +
               log"${MDC(HADOOP_VERSION, hadoopVersion)} to " +
@@ -90,6 +90,10 @@ private[hive] object IsolatedClientLoader extends Logging {
   }
 
   def hiveVersion(version: String): HiveVersion = {
+    if (version == hive.v2_3_arenadata.mavenVersion ||
+      version == "2.3.10_arenadata1") {
+      return hive.v2_3_arenadata
+    }
     VersionUtils.majorMinorPatchVersion(version).flatMap {
       case (2, 0, _) => Some(hive.v2_0)
       case (2, 1, _) => Some(hive.v2_1)
@@ -129,21 +133,36 @@ private[hive] object IsolatedClientLoader extends Logging {
     }
     val hiveArtifacts = version.extraDeps ++
       Seq("hive-metastore", "hive-exec", "hive-common", "hive-serde")
-        .map(a => s"org.apache.hive:$a:${version.fullVersion}") ++ hadoopJarNames
+        .map(a => s"org.apache.hive:$a:${version.mavenVersion}") ++ hadoopJarNames
 
     implicit val printStream: PrintStream = SparkSubmit.printStream
     val classpaths = quietly {
-      MavenUtils.resolveMavenCoordinates(
-        hiveArtifacts.mkString(","),
-        MavenUtils.buildIvySettings(
-          Some(remoteRepos),
-          ivyPath),
-        Some(MavenUtils.buildIvySettings(
-          Some(remoteRepos),
-          ivyPath,
-          useLocalM2AsCache = false)),
-        transitive = true,
-        exclusions = version.exclusions)
+      val ivySettingsFile = sys.props.get("spark.jars.ivySettings")
+        .orElse(sys.env.get("SPARK_JARS_IVY_SETTINGS"))
+      ivySettingsFile match {
+        case Some(path) =>
+          MavenUtils.resolveMavenCoordinates(
+            hiveArtifacts.mkString(","),
+            MavenUtils.loadIvySettings(path, Some(remoteRepos), ivyPath),
+            Some(MavenUtils.buildIvySettings(
+              Some(remoteRepos),
+              ivyPath,
+              useLocalM2AsCache = false)),
+            transitive = true,
+            exclusions = version.exclusions)
+        case None =>
+          MavenUtils.resolveMavenCoordinates(
+            hiveArtifacts.mkString(","),
+            MavenUtils.buildIvySettings(
+              Some(remoteRepos),
+              ivyPath),
+            Some(MavenUtils.buildIvySettings(
+              Some(remoteRepos),
+              ivyPath,
+              useLocalM2AsCache = false)),
+            transitive = true,
+            exclusions = version.exclusions)
+      }
     }
     val allFiles = classpaths.map(new File(_)).toSet
 

@@ -24,7 +24,10 @@ package object client {
   private[hive] sealed abstract class HiveVersion(
       val fullVersion: String,
       val extraDeps: Seq[String] = Nil,
-      val exclusions: Seq[String] = Nil) extends Ordered[HiveVersion] {
+      val exclusions: Seq[String] = Nil,
+      mavenVersionOverride: Option[String] = None) extends Ordered[HiveVersion] {
+    val mavenVersion: String = mavenVersionOverride.getOrElse(fullVersion)
+
     override def compare(that: HiveVersion): Int = {
       val thisVersionParts = fullVersion.split('.').map(_.toInt)
       val thatVersionParts = that.fullVersion.split('.').map(_.toInt)
@@ -68,6 +71,10 @@ package object client {
         "org.apache.curator:*",
         "net.hydromatic:aggdesigner-algorithm",
         "org.apache.hive:hive-vector-code-gen"))
+
+    case object v2_3_arenadata extends HiveVersion("2.3.10",
+      exclusions = v2_3.exclusions,
+      mavenVersionOverride = Some("2.3.10.2-4.3.0-0"))
 
     // Since Hive 3.0, HookUtils uses org.apache.logging.log4j.util.Strings
     // Since HIVE-14496, Hive.java uses calcite-core
@@ -130,7 +137,7 @@ package object client {
         })
 
     val allSupportedHiveVersions: Set[HiveVersion] =
-      Set(v2_0, v2_1, v2_2, v2_3, v3_0, v3_1, v4_0, v4_1)
+      Set(v2_0, v2_1, v2_2, v2_3, v2_3_arenadata, v3_0, v3_1, v4_0, v4_1)
   }
   // scalastyle:on
 
