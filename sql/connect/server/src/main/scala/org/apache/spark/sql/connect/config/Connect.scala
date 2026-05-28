@@ -371,7 +371,6 @@ object Connect {
     .stringConf
     .createOptional
 
-
   val CONNECT_AUTHENTICATE_TOKEN_ENV = "SPARK_CONNECT_AUTHENTICATE_TOKEN"
 
   def getAuthenticateToken: Option[String] = {

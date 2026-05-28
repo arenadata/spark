@@ -46,8 +46,8 @@ import org.apache.spark.sql.connector.catalog.CatalogManager.SESSION_CATALOG_NAM
 import org.apache.spark.sql.connector.catalog.SupportsNamespaces._
 import org.apache.spark.sql.errors.QueryCompilationErrors
 import org.apache.spark.sql.errors.QueryExecutionErrors.hiveTableWithAnsiIntervalsError
-import org.apache.spark.sql.execution.datasources.{CreateTable, DataSource, DataSourceUtils, FileFormat, HadoopFsRelation, LogicalRelation, LogicalRelationWithTable}
 import org.apache.spark.sql.execution.command.CommandUtils.isPurgeableExternalTable
+import org.apache.spark.sql.execution.datasources.{CreateTable, DataSource, DataSourceUtils, FileFormat, HadoopFsRelation, LogicalRelation, LogicalRelationWithTable}
 import org.apache.spark.sql.execution.datasources.v2.FileDataSourceV2
 import org.apache.spark.sql.internal.{HiveSerDe, SQLConf}
 import org.apache.spark.sql.types._

@@ -19,7 +19,7 @@ package org.apache.spark.sql.connect.service
 
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.SparkHadoopUtil
-import org.apache.spark.internal.{config, Logging, MDC}
+import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.internal.LogKeys.{HOST, PORT}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.connect.config.Connect
@@ -65,9 +65,11 @@ object SparkConnectServer extends Logging {
   private def initSecurity(conf: SparkConf): Unit = {
     if (conf.contains(Connect.KERBEROS_KEYTAB)) {
       // if you have enabled kerberos the following 2 params must be set
-      val keytabFilename = conf.get(Connect.KERBEROS_KEYTAB)
+      val keytabFilename = conf
+        .get(Connect.KERBEROS_KEYTAB)
         .getOrElse(throw new NoSuchElementException(Connect.KERBEROS_KEYTAB.key))
-      val principalName = conf.get(Connect.KERBEROS_PRINCIPAL)
+      val principalName = conf
+        .get(Connect.KERBEROS_PRINCIPAL)
         .getOrElse(throw new NoSuchElementException(Connect.KERBEROS_PRINCIPAL.key))
 
       conf.set(config.KEYTAB.key, keytabFilename)

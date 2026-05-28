@@ -20,13 +20,13 @@ import java.io.File
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.util.Base64
 
 import scala.jdk.CollectionConverters._
 
 import io.fabric8.kubernetes.api.model._
-import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder
 import io.fabric8.kubernetes.api.model.SecretBuilder
-import org.apache.commons.codec.binary.Base64
+import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder
 import org.apache.hadoop.util.VersionInfo
 import org.scalatest.concurrent.{Eventually, PatienceConfiguration}
 import org.scalatest.time.{Minutes, Span}
@@ -192,7 +192,7 @@ private[spark] trait DepsTestsSuite { k8sSuite: KubernetesSuite =>
       .withName(ivySecretName)
       .endMetadata()
       .addToData("ivysettings.xml",
-        Base64.encodeBase64String(replaced.getBytes(StandardCharsets.UTF_8)))
+        Base64.getEncoder().encodeToString(replaced.getBytes(StandardCharsets.UTF_8)))
       .build()
 
     Eventually.eventually(TIMEOUT, INTERVAL) {
@@ -436,7 +436,7 @@ private[spark] trait DepsTestsSuite { k8sSuite: KubernetesSuite =>
       .set("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
       .set("spark.jars.packages", packages)
       .set("spark.jars.ivySettings", sparkHomeDir.resolve("dev/ivysettings.xml").toString)
-      .set("spark.kubernetes.driver.secrets."+ivySecretName, sparkHomeDir.resolve("dev").toString)
+      .set("spark.kubernetes.driver.secrets." + ivySecretName, sparkHomeDir.resolve("dev").toString)
       .set("spark.driver.extraJavaOptions", "-Divy.cache.dir=/tmp -Divy.home=/tmp")
   }
 

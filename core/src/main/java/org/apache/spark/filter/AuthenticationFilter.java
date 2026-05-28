@@ -22,14 +22,13 @@ import org.apache.hadoop.security.authentication.client.AuthenticationException;
 import org.apache.hadoop.security.authentication.client.KerberosAuthenticator;
 import org.apache.hadoop.security.authentication.server.*;
 import org.apache.hadoop.security.authentication.util.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -39,9 +38,13 @@ import java.security.Principal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import org.apache.spark.internal.SparkLogger;
+import org.apache.spark.internal.SparkLoggerFactory;
+
 public class AuthenticationFilter implements Filter {
 
-    private static Logger LOG = LoggerFactory.getLogger(org.apache.spark.filter.AuthenticationFilter.class);
+    private static SparkLogger LOG =
+            SparkLoggerFactory.getLogger(org.apache.spark.filter.AuthenticationFilter.class);
 
     /**
      * Constant for the property that specifies the configuration prefix.
@@ -127,8 +130,8 @@ public class AuthenticationFilter implements Filter {
      * AuthenticationHandler}.
      *
      * @param filterConfig filter configuration.
-     *
-     * @throws ServletException thrown if the filter or the authentication handler could not be initialized properly.
+     * @throws ServletException thrown if the filter or the authentication handler could
+     *                          not be initialized properly.
      */
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
@@ -166,7 +169,8 @@ public class AuthenticationFilter implements Filter {
     protected void initializeAuthHandler(String authHandlerClassName, FilterConfig filterConfig)
             throws ServletException {
         try {
-            Class<?> klass = Thread.currentThread().getContextClassLoader().loadClass(authHandlerClassName);
+            Class<?> klass = Thread.currentThread().getContextClassLoader().loadClass(
+                    authHandlerClassName);
             authHandler = (AuthenticationHandler) klass.newInstance();
             authHandler.init(config);
             resolveAuthMethods(authHandler);
@@ -186,14 +190,14 @@ public class AuthenticationFilter implements Filter {
         }
         if (managementOperationMethod == null || authenticateMethod == null) {
             throw new IllegalStateException(
-                "Cannot resolve auth methods on " + handler.getClass().getName());
+                    "Cannot resolve auth methods on " + handler.getClass().getName());
         }
     }
 
     protected void initializeSecretProvider(FilterConfig filterConfig)
             throws ServletException {
-        secretProvider = (SignerSecretProvider) filterConfig.getServletContext().
-                getAttribute(SIGNER_SECRET_PROVIDER_ATTRIBUTE);
+        secretProvider = (SignerSecretProvider) filterConfig.getServletContext().getAttribute(
+                SIGNER_SECRET_PROVIDER_ATTRIBUTE);
         if (secretProvider == null) {
             // As tomcat cannot specify the provider object in the configuration.
             // It'll go into this path
@@ -244,16 +248,17 @@ public class AuthenticationFilter implements Filter {
             provider = new ZKSignerSecretProvider();
             initProviderReflective(provider, config, ctx, validity);
         } else {
-            provider = (SignerSecretProvider) Thread.currentThread().
-                    getContextClassLoader().loadClass(name).newInstance();
+            provider = (SignerSecretProvider) Thread.currentThread()
+                    .getContextClassLoader().loadClass(name).newInstance();
             initProviderReflective(provider, config, ctx, validity);
         }
         return provider;
     }
 
     private static void initProviderReflective(SignerSecretProvider provider,
-            Properties config, jakarta.servlet.ServletContext ctx,
-            long validity) throws Exception {
+                                               Properties config,
+                                               jakarta.servlet.ServletContext ctx,
+                                               long validity) throws Exception {
         Method initMethod = null;
         for (Method m : provider.getClass().getMethods()) {
             if ("init".equals(m.getName()) && m.getParameterCount() == 3
@@ -264,7 +269,7 @@ public class AuthenticationFilter implements Filter {
         }
         if (initMethod == null) {
             throw new IllegalStateException(
-                "Cannot find init method on " + provider.getClass());
+                    "Cannot find init method on " + provider.getClass());
         }
         Class<?> ctxClass = initMethod.getParameterTypes()[1];
         Object hadoopCtx = createServletProxy(ctx, ctxClass);
@@ -310,7 +315,8 @@ public class AuthenticationFilter implements Filter {
             Object[] mappedArgs = mapArgs(args);
             Method target = findCompatibleMethod(delegate.getClass(), method, mappedArgs);
             if (target == null) {
-                throw new UnsupportedOperationException("No compatible jakarta.servlet method for " + method);
+                throw new UnsupportedOperationException(
+                        "No compatible jakarta.servlet method for " + method);
             }
             Object result = target.invoke(delegate, mappedArgs);
             return bridgeReturn(method.getReturnType(), result);
@@ -338,7 +344,9 @@ public class AuthenticationFilter implements Filter {
             return arg;
         }
 
-        private Method findCompatibleMethod(Class<?> targetClass, Method shadedMethod, Object[] args) {
+        private Method findCompatibleMethod(Class<?> targetClass,
+                                            Method shadedMethod,
+                                            Object[] args) {
             Method[] methods = targetClass.getMethods();
             for (Method candidate : methods) {
                 if (!candidate.getName().equals(shadedMethod.getName())) {
@@ -405,7 +413,8 @@ public class AuthenticationFilter implements Filter {
     }
 
     /**
-     * Returns the configuration properties of the {@link org.apache.hadoop.security.authentication.server.AuthenticationFilter}
+     * Returns the configuration properties of the
+     * {@link org.apache.hadoop.security.authentication.server.AuthenticationFilter}
      * without the prefix. The returned properties are the same that the
      * {@link #getConfiguration(String, FilterConfig)} method returned.
      *
@@ -493,7 +502,8 @@ public class AuthenticationFilter implements Filter {
     /**
      * Destroys the filter.
      * <p>
-     * It invokes the {@link AuthenticationHandler#destroy()} method to release any resources it may hold.
+     * It invokes the {@link AuthenticationHandler#destroy()} method to release any resources
+     * it may hold.
      */
     @Override
     public void destroy() {
@@ -508,21 +518,21 @@ public class AuthenticationFilter implements Filter {
     }
 
     /**
-     * Returns the filtered configuration (only properties starting with the specified prefix). The property keys
-     * are also trimmed from the prefix. The returned {@link Properties} object is used to initialized the
+     * Returns the filtered configuration (only properties starting with the specified prefix).
+     * The property keys are also trimmed from the prefix. The returned {@link Properties} object
+     * is used to initialized the
      * {@link AuthenticationHandler}.
      * <p>
-     * This method can be overriden by subclasses to obtain the configuration from other configuration source than
-     * the web.xml file.
+     * This method can be overriden by subclasses to obtain the configuration from other
+     * configuration source than the web.xml file.
      *
      * @param configPrefix configuration prefix to use for extracting configuration properties.
      * @param filterConfig filter configuration object
-     *
      * @return the configuration to be used with the {@link AuthenticationHandler} instance.
-     *
      * @throws ServletException thrown if the configuration could not be created.
      */
-    protected Properties getConfiguration(String configPrefix, FilterConfig filterConfig) throws ServletException {
+    protected Properties getConfiguration(String configPrefix, FilterConfig filterConfig)
+            throws ServletException {
         Properties props = new Properties();
         Enumeration<?> names = filterConfig.getInitParameterNames();
         while (names.hasMoreElements()) {
@@ -541,7 +551,6 @@ public class AuthenticationFilter implements Filter {
      * Used as a convenience method for logging purposes.
      *
      * @param request the request object.
-     *
      * @return the full URL of the request including the query string.
      */
     protected String getRequestURL(HttpServletRequest request) {
@@ -555,21 +564,24 @@ public class AuthenticationFilter implements Filter {
     /**
      * Returns the {@link AuthenticationToken} for the request.
      * <p>
-     * It looks at the received HTTP cookies and extracts the value of the {@link AuthenticatedURL#AUTH_COOKIE}
-     * if present. It verifies the signature and if correct it creates the {@link AuthenticationToken} and returns
+     * It looks at the received HTTP cookies and extracts the value of the
+     * {@link AuthenticatedURL#AUTH_COOKIE}
+     * if present. It verifies the signature and if correct it creates the
+     * {@link AuthenticationToken} and returns
      * it.
      * <p>
-     * If this method returns <code>null</code> the filter will invoke the configured {@link AuthenticationHandler}
+     * If this method returns <code>null</code> the filter will invoke the configured
+     * {@link AuthenticationHandler}
      * to perform user authentication.
      *
      * @param request request object.
-     *
-     * @return the Authentication token if the request is authenticated, <code>null</code> otherwise.
-     *
-     * @throws IOException thrown if an IO error occurred.
+     * @return the Authentication token if the request is authenticated,
+     * <code>null</code> otherwise.
+     * @throws IOException             thrown if an IO error occurred.
      * @throws AuthenticationException thrown if the token is invalid or if it has expired.
      */
-    protected AuthenticationToken getToken(HttpServletRequest request) throws IOException, AuthenticationException {
+    protected AuthenticationToken getToken(HttpServletRequest request) throws IOException,
+            AuthenticationException {
         AuthenticationToken token = null;
         String tokenStr = null;
         Cookie[] cookies = request.getCookies();
@@ -615,11 +627,11 @@ public class AuthenticationFilter implements Filter {
      *                should be used for verification.
      * @param token   The token whose type needs to be verified.
      * @return true   If the token type matches one of the supported token types
-     *         false  Otherwise
+     * false  Otherwise
      */
     protected boolean verifyTokenType(AuthenticationHandler handler,
                                       AuthenticationToken token) {
-        if(!(handler instanceof CompositeAuthenticationHandler)) {
+        if (!(handler instanceof CompositeAuthenticationHandler)) {
             return handler.getType().equals(token.getType());
         }
         boolean match = false;
@@ -635,14 +647,14 @@ public class AuthenticationFilter implements Filter {
     }
 
     /**
-     * If the request has a valid authentication token it allows the request to continue to the target resource,
-     * otherwise it triggers an authentication sequence using the configured {@link AuthenticationHandler}.
+     * If the request has a valid authentication token it allows the request to continue
+     * to the target resource, otherwise it triggers an authentication sequence using the
+     * configured {@link AuthenticationHandler}.
      *
-     * @param request the request object.
-     * @param response the response object.
+     * @param request     the request object.
+     * @param response    the response object.
      * @param filterChain the filter chain object.
-     *
-     * @throws IOException thrown if an IO error occurred.
+     * @throws IOException      thrown if an IO error occurred.
      * @throws ServletException thrown if a processing error occurred.
      */
     @Override
@@ -665,8 +677,7 @@ public class AuthenticationFilter implements Filter {
                     LOG.debug("Got token {} from httpRequest {}", token,
                             getRequestURL(httpRequest));
                 }
-            }
-            catch (AuthenticationException ex) {
+            } catch (AuthenticationException ex) {
                 LOG.warn("AuthenticationToken ignored: " + ex.getMessage());
                 // will be sent back in a 401 unless filter authenticates
                 authenticationEx = ex;
@@ -806,10 +817,9 @@ public class AuthenticationFilter implements Filter {
      * method to perform pre and post tasks.
      *
      * @param filterChain the filter chain object.
-     * @param request the request object.
-     * @param response the response object.
-     *
-     * @throws IOException thrown if an IO error occurred.
+     * @param request     the request object.
+     * @param response    the response object.
+     * @throws IOException      thrown if an IO error occurred.
      * @throws ServletException thrown if a processing error occurred.
      */
     protected void doFilter(FilterChain filterChain, HttpServletRequest request,
@@ -820,18 +830,18 @@ public class AuthenticationFilter implements Filter {
     /**
      * Creates the Hadoop authentication HTTP cookie.
      *
-     * @param resp the response object.
-     * @param token authentication token for the cookie.
-     * @param domain the cookie domain.
-     * @param path the cookie path.
-     * @param expires UNIX timestamp that indicates the expire date of the
-     *                cookie. It has no effect if its value &lt; 0.
-     * @param isSecure is the cookie secure?
+     * @param resp               the response object.
+     * @param token              authentication token for the cookie.
+     * @param domain             the cookie domain.
+     * @param path               the cookie path.
+     * @param expires            UNIX timestamp that indicates the expire date of the
+     *                           cookie. It has no effect if its value &lt; 0.
+     * @param isSecure           is the cookie secure?
      * @param isCookiePersistent whether the cookie is persistent or not.
-     *
-     * XXX the following code duplicate some logic in Jetty / Servlet API,
-     * because of the fact that Hadoop is stuck at servlet 2.5 and jetty 6
-     * right now.
+     *                           <p>
+     *                           XXX the following code duplicate some logic in Jetty / Servlet API,
+     *                           because of the fact that Hadoop is stuck at servlet 2.5 and jetty 6
+     *                           right now.
      */
     public static void createAuthCookie(HttpServletResponse resp, String token,
                                         String domain, String path, long expires,
