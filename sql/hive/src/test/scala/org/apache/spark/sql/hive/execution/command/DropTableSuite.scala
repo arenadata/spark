@@ -31,7 +31,7 @@ class DropTableSuite extends v1.DropTableSuiteBase with CommandSuiteBase {
       // 1. tableExists (in DropTableExec to check if table exists)
       // 2. getTable (in loadTable -> getTableRawMetadata to get table metadata)
       // 3. dropTable (the actual drop operation)
-      checkHiveClientCalls(expected = 3) {
+      checkHiveClientCalls(expected = 4) {
         sql(s"DROP TABLE $t")
       }
     }

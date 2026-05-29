@@ -148,9 +148,9 @@ if [ "$SBT_ENABLED" == "true" ]; then
   SCALA_VERSION=$("$SBT" -no-colors "show scalaBinaryVersion" | awk '/\[info\]/{ver=$2} END{print ver}')
   SPARK_HADOOP_VERSION=$("$SBT" -no-colors "show hadoopVersion" | awk '/\[info\]/{ver=$2} END{print ver}')
 else
-  VERSION=$("$MVN" help:evaluate -Dexpression=project.version "$@" -q -DforceStdout)
-  SCALA_VERSION=$("$MVN" help:evaluate -Dexpression=scala.binary.version "$@" -q -DforceStdout)
-  SPARK_HADOOP_VERSION=$("$MVN" help:evaluate -Dexpression=hadoop.version "$@" -q -DforceStdout)
+  VERSION=$("$MVN" help:evaluate -Dexpression=project.version "$@" -q -DforceStdout 2>/dev/null | tail -1)
+  SCALA_VERSION=$("$MVN" help:evaluate -Dexpression=scala.binary.version "$@" -q -DforceStdout 2>/dev/null | tail -1)
+  SPARK_HADOOP_VERSION=$("$MVN" help:evaluate -Dexpression=hadoop.version "$@" -q -DforceStdout 2>/dev/null | tail -1)
 fi
 
 if [ "$NAME" == "none" ]; then

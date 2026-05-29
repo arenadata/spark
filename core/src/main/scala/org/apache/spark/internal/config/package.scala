@@ -321,6 +321,13 @@ package object config {
         "configured to be at least 2 MiB.")
       .createWithDefaultString("128m")
 
+  private[spark] val EVENT_LOG_ROLLING_INTERVAL =
+    ConfigBuilder("spark.eventLog.rolling.interval")
+      .doc("Force rolling if the previous rolling was more than interval in past.")
+      .version("3.5.4")
+      .timeConf(TimeUnit.SECONDS)
+      .createOptional
+
   private[spark] val EXECUTOR_ID =
     ConfigBuilder("spark.executor.id").version("1.2.0").stringConf.createOptional
 
@@ -2896,6 +2903,21 @@ package object config {
       .stringConf
       .toSequence
       .createWithDefault("org.apache.spark.sql.connect.client" :: Nil)
+
+  private[spark] val SPARK_SQL_CONF_BLACKLIST =
+    ConfigBuilder("spark.sql.security.confblacklist")
+      .internal()
+      .version("3.5.1")
+      .stringConf
+      .toSequence
+      .createOptional
+
+  private[spark] val SPARK_ARTIFACTORY_DIR_PATH =
+    ConfigBuilder("spark.artifactory.dir.path")
+      .internal()
+      .version("3.5.2")
+      .stringConf
+      .createWithDefault("artifacts")
 
   private[spark] val LEGACY_ABORT_STAGE_AFTER_KILL_TASKS =
     ConfigBuilder("spark.scheduler.stage.legacyAbortAfterKillTasks")

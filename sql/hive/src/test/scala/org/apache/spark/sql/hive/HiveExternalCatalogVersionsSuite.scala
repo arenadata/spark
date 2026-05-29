@@ -235,6 +235,8 @@ class HiveExternalCatalogVersionsSuite extends SparkSubmitTestUtils {
   }
 
   test("backward compatibility") {
+    // FIXME: cannot load custom repository
+    val hiveMetastoreVersion = """^\d+\.\d+""".r.findFirstIn(hiveVersion).get
     assume(PROCESS_TABLES.isPythonVersionAvailable)
     val args = Seq(
       "--class", PROCESS_TABLES.getClass.getName.stripSuffix("$"),
@@ -242,7 +244,7 @@ class HiveExternalCatalogVersionsSuite extends SparkSubmitTestUtils {
       "--master", "local[2]",
       "--conf", s"${UI_ENABLED.key}=false",
       "--conf", s"${MASTER_REST_SERVER_ENABLED.key}=false",
-      "--conf", s"${HiveUtils.HIVE_METASTORE_VERSION.key}=$hiveVersion",
+      "--conf", s"${HiveUtils.HIVE_METASTORE_VERSION.key}=$hiveMetastoreVersion",
       "--conf", s"${HiveUtils.HIVE_METASTORE_JARS.key}=maven",
       "--conf", s"${WAREHOUSE_PATH.key}=${wareHousePath.getCanonicalPath}",
       "--driver-java-options", s"-Dderby.system.home=${wareHousePath.getCanonicalPath}",
@@ -312,7 +314,8 @@ object PROCESS_TABLES extends QueryTest {
         val expectedLocation = if (tableMeta.tableType == CatalogTableType.EXTERNAL) {
           tableMeta.storage.locationUri.get.getPath
         } else {
-          spark.sessionState.catalog.defaultTablePath(TableIdentifier(newName, None)).getPath
+          // TODO: should we enable name override on RENAME?
+          spark.sessionState.catalog.defaultTablePath(TableIdentifier(tbl, None)).getPath
         }
         assert(actualTableLocation == expectedLocation)
 

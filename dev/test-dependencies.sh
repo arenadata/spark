@@ -38,7 +38,7 @@ HADOOP_HIVE_PROFILES=(
 )
 
 MVN_EXEC_PLUGIN_VERSION=$(build/mvn help:evaluate \
-    -Dexpression=exec-maven-plugin.version -q -DforceStdout | grep -E "[0-9]+\.[0-9]+\.[0-9]+")
+    -Dexpression=exec-maven-plugin.version -q -DforceStdout 2>/dev/null | tail -1 | grep -E "[0-9]+\.[0-9]+\.[0-9]+")
 
 # We'll switch the version to a temp. one, publish POMs using that new version, then switch back to
 # the old version. We need to do this because the `dependency:build-classpath` task needs to
@@ -50,11 +50,11 @@ OLD_VERSION=$($MVN -q \
     -Dexec.executable="echo" \
     -Dexec.args='${project.version}' \
     --non-recursive \
-    org.codehaus.mojo:exec-maven-plugin:${MVN_EXEC_PLUGIN_VERSION}:exec | grep -E '[0-9]+\.[0-9]+\.[0-9]+')
+    org.codehaus.mojo:exec-maven-plugin:${MVN_EXEC_PLUGIN_VERSION}:exec 2>/dev/null | tail -1 | grep -E '[0-9]+\.[0-9]+\.[0-9]+')
 # dependency:get for guava and jetty-io are workaround for SPARK-37302.
-GUAVA_VERSION=$(build/mvn help:evaluate -Dexpression=guava.version -q -DforceStdout | grep -E "^[0-9\.]+")
+GUAVA_VERSION=$(build/mvn help:evaluate -Dexpression=guava.version -q -DforceStdout 2>/dev/null | tail -1 | grep -E "^[0-9\.]+")
 build/mvn dependency:get -Dartifact=com.google.guava:guava:${GUAVA_VERSION} -q
-JETTY_VERSION=$(build/mvn help:evaluate -Dexpression=jetty.version -q -DforceStdout | grep -E "[0-9]+\.[0-9]+\.[0-9]+")
+JETTY_VERSION=$(build/mvn help:evaluate -Dexpression=jetty.version -q -DforceStdout 2>/dev/null | tail -1 | grep -E "[0-9]+\.[0-9]+\.[0-9]+")
 build/mvn dependency:get -Dartifact=org.eclipse.jetty:jetty-io:${JETTY_VERSION} -q
 if [ $? != 0 ]; then
     echo -e "Error while getting version string from Maven:\n$OLD_VERSION"
@@ -64,7 +64,7 @@ SCALA_BINARY_VERSION=$($MVN -q \
     -Dexec.executable="echo" \
     -Dexec.args='${scala.binary.version}' \
     --non-recursive \
-    org.codehaus.mojo:exec-maven-plugin:${MVN_EXEC_PLUGIN_VERSION}:exec | grep -E '[0-9]+\.[0-9]+')
+    org.codehaus.mojo:exec-maven-plugin:${MVN_EXEC_PLUGIN_VERSION}:exec 2>/dev/null | tail -1 | grep -E '[0-9]+\.[0-9]+')
 if [[ "$SCALA_BINARY_VERSION" != "2.13" ]]; then
   echo "Skip dependency testing on $SCALA_BINARY_VERSION"
   exit 0

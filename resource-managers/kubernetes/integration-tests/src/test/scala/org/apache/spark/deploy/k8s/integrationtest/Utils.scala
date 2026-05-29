@@ -91,7 +91,7 @@ object Utils extends Logging {
       .exec(cmd.toArray: _*)
     // under load sometimes the stdout isn't connected by the time we try to read from it.
     listener.waitForInputStreamToConnect()
-    System.in.transferTo(watch.getInput)
+    watch.getInput.close()
     listener.waitForClose()
     watch.close()
     out.flush()

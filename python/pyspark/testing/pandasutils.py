@@ -527,6 +527,9 @@ class PandasOnSparkTestCase(ReusedSQLTestCase, PandasOnSparkTestUtils):
     def setUpClass(cls):
         super().setUpClass()
         cls.spark.conf.set(SPARK_CONF_ARROW_ENABLED, True)
+        pd.set_option('display.max_columns', None)        # never truncate columns
+        pd.set_option('display.expand_frame_repr', False) # avoid line wrapping
+        pd.set_option('display.show_dimensions', False)   # hide [N rows x M cols]
 
     def setUp(self):
         super().setUp()
