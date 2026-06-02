@@ -1638,6 +1638,11 @@ def _test() -> None:
 
     os.chdir(os.environ["SPARK_HOME"])
 
+    # Prevent pandas from truncating wide DataFrames in doctest output
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.expand_frame_repr', False)
+    pd.set_option('display.show_dimensions', False)
+
     globs = pyspark.pandas.internal.__dict__.copy()
     globs["ps"] = pyspark.pandas
     spark = (

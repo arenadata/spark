@@ -22,6 +22,7 @@ import org.apache.spark.sql.catalyst.analysis.{NoSuchPartitionsException, Resolv
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.connector.catalog.{SupportsAtomicPartitionManagement, SupportsPartitionManagement}
 import org.apache.spark.sql.errors.QueryExecutionErrors
+import org.apache.spark.sql.execution.command.CommandUtils.isPurgeableExternalTable
 
 /**
  * Physical plan node for dropping partitions of table.
@@ -48,16 +49,20 @@ case class DropPartitionExec(
     val isTableAltered = existsPartIdents match {
       case Seq() => false // Nothing will be done
       case Seq(partIdent) =>
-        if (purge) table.purgePartition(partIdent) else table.dropPartition(partIdent)
+        if (shouldPurge) table.purgePartition(partIdent) else table.dropPartition(partIdent)
       case _ if table.isInstanceOf[SupportsAtomicPartitionManagement] =>
         val idents = existsPartIdents.toArray
         val atomicTable = table.asAtomicPartitionable
-        if (purge) atomicTable.purgePartitions(idents) else atomicTable.dropPartitions(idents)
+        if (shouldPurge) atomicTable.purgePartitions(idents) else atomicTable.dropPartitions(idents)
       case _ =>
         throw QueryExecutionErrors.cannotDropMultiPartitionsOnNonatomicPartitionTableError(
           table.name())
     }
     if (isTableAltered) refreshCache()
     Seq.empty
+  }
+
+  private def shouldPurge: Boolean = {
+    purge || isPurgeableExternalTable(table)
   }
 }

@@ -1268,6 +1268,23 @@ class SparkConnectClient(object):
         assert result is not None
         return result
 
+    def release_session(self) -> None:
+        # flush pending ReleaseExecute calls first, token is revoked after ReleaseSession
+        ExecutePlanResponseReattachableIterator.shutdown()
+        req = pb2.ReleaseSessionRequest()
+        req.session_id = self._session_id
+        req.client_type = self._builder.userAgent
+        if self._user_id:
+            req.user_context.user_id = self._user_id
+        try:
+            for attempt in self._retrying():
+                with attempt:
+                    self._stub.ReleaseSession(req, metadata=self._builder.metadata())
+                    return
+            raise SparkConnectException("Invalid state during retry exception handling.")
+        except Exception as error:
+            self._handle_error(error)
+
     def close(self) -> None:
         """
         Close the channel.

@@ -180,7 +180,7 @@ private[spark] class SparkUI private (
     securityManager.checkUIViewPermissions(user)
   }
 
-  def getApplicationInfoList: Iterator[ApplicationInfo] = {
+  def getApplicationInfoList(user: Option[String]): Iterator[ApplicationInfo] = {
     Iterator(new ApplicationInfo(
       id = appId,
       name = appName,
@@ -201,13 +201,13 @@ private[spark] class SparkUI private (
     ))
   }
 
-  override def getApplicationInfoList(max: Int)(
+  override def getApplicationInfoList(user: Option[String], max: Int)(
       filter: ApplicationInfo => Boolean): Iterator[ApplicationInfo] = {
-    getApplicationInfoList.filter(filter).take(max)
+    getApplicationInfoList(user).filter(filter).take(max)
   }
 
   def getApplicationInfo(appId: String): Option[ApplicationInfo] = {
-    getApplicationInfoList.find(_.id == appId)
+    getApplicationInfoList(None).find(_.id == appId)
   }
 
   def getStreamingJobProgressListener: Option[SparkListener] = streamingJobProgressListener

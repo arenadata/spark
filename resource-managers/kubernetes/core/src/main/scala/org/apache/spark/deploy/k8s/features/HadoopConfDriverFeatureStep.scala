@@ -17,8 +17,10 @@
 package org.apache.spark.deploy.k8s.features
 
 import java.io.File
+import java.nio.charset.MalformedInputException
 import java.nio.file.Files
 
+import scala.io.{Codec, Source}
 import scala.jdk.CollectionConverters._
 
 import io.fabric8.kubernetes.api.model._
@@ -26,6 +28,8 @@ import io.fabric8.kubernetes.api.model._
 import org.apache.spark.deploy.k8s.{KubernetesConf, KubernetesUtils, SparkPod}
 import org.apache.spark.deploy.k8s.Config._
 import org.apache.spark.deploy.k8s.Constants._
+import org.apache.spark.internal.Logging
+import org.apache.spark.internal.LogKeys.PATH
 import org.apache.spark.util.ArrayImplicits._
 
 /**
@@ -33,7 +37,7 @@ import org.apache.spark.util.ArrayImplicits._
  * directory - on the driver pod.
  */
 private[spark] class HadoopConfDriverFeatureStep(conf: KubernetesConf)
-  extends KubernetesFeatureConfigStep {
+  extends KubernetesFeatureConfigStep with Logging {
 
   private val confDir = Option(conf.sparkConf.getenv(ENV_HADOOP_CONF_DIR))
   private val existingConfMap = conf.get(KUBERNETES_HADOOP_CONF_CONFIG_MAP)
@@ -44,10 +48,26 @@ private[spark] class HadoopConfDriverFeatureStep(conf: KubernetesConf)
     "Do not specify both the `HADOOP_CONF_DIR` in your ENV and the ConfigMap " +
     "as the creation of an additional ConfigMap, when one is already specified is extraneous")
 
+  private def isText(file: File): Boolean = {
+    var source: Source = Source.fromString("") // init with empty source.
+    try {
+      source = Source.fromFile(file)(Codec.UTF8)
+      val fileContent = source.mkString
+      true
+    } catch {
+      case e: MalformedInputException =>
+        logWarning(log"Unable to read a non UTF-8 encoded file " +
+          log"${MDC(PATH, file.getAbsolutePath)}. Skipping...", e)
+        false
+    } finally {
+      source.close()
+    }
+  }
+
   private lazy val confFiles: Seq[File] = {
     val dir = new File(confDir.get)
     if (dir.isDirectory) {
-      dir.listFiles.filter(_.isFile).toImmutableArraySeq
+      dir.listFiles.filter(_.isFile).filter(_.canRead).filter(isText(_)).toImmutableArraySeq
     } else {
       Nil
     }
@@ -114,7 +134,7 @@ private[spark] class HadoopConfDriverFeatureStep(conf: KubernetesConf)
 
   override def getAdditionalKubernetesResources(): Seq[HasMetadata] = {
     if (confDir.isDefined) {
-      val fileMap = confFiles.map { file =>
+      val fileMap: java.util.Map[String, String] = confFiles.map { file =>
         (file.getName(), Files.readString(file.toPath))
       }.toMap.asJava
 

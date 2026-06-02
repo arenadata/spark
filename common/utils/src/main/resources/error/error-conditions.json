@@ -9415,6 +9415,11 @@
       "LOAD DATA target table <tableIdentWithDB> is not partitioned, but a partition spec was provided."
     ]
   },
+  "_LEGACY_ERROR_TEMP_1266" : {
+    "message" : [
+      "Operation not allowed: TRUNCATE TABLE on external tables without 'external.table.purge' set to true: <tableIdentWithDB>."
+    ]
+  },
   "_LEGACY_ERROR_TEMP_1267" : {
     "message" : [
       "Operation not allowed: TRUNCATE TABLE ... PARTITION is not supported for tables that are not partitioned: <tableIdentWithDB>."

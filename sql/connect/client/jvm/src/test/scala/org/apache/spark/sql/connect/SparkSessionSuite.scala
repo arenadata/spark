@@ -274,5 +274,6 @@ class SparkSessionSuite extends ConnectFunSuite {
     val session = SparkSession.builder().create()
     val bytes = SparkSerDeUtils.serialize(session)
     assert(SparkSerDeUtils.deserialize[SparkSession](bytes) == null)
+    closeSession(session)
   }
 }

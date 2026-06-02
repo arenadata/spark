@@ -652,6 +652,51 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
     }
   }
 
+  test("show only applications which the users has the permission to read") {
+    val owner = "irashid"
+    val admin = "admin"
+    val other = "sam"
+
+    stop()
+    init(
+      "spark.ui.filters" -> classOf[FakeAuthFilter].getName(),
+      "spark.history.ui.acls.enable" -> "true",
+      "spark.history.ui.acls.filterList" -> "true",
+      "spark.history.ui.admin.acls" -> admin)
+    Seq((owner, 7), (admin, 17), (other, 1)).foreach { case (user, expectedApplicationsNum) =>
+      val (_, response, _) = getContentAndCode("applications", server.boundPort,
+        Seq(FakeAuthFilter.FAKE_HTTP_USER -> user))
+      assert(response.isDefined)
+      parse(response.get) match {
+        case apps: JArray =>
+          assert(apps.children.size == expectedApplicationsNum)
+        case _ => fail()
+      }
+    }
+  }
+
+  test("check that all applications in list if no spark.history.ui.acls.filterList set") {
+    val owner = "irashid"
+    val admin = "admin"
+    val other = "sam"
+
+    stop()
+    init(
+      "spark.ui.filters" -> classOf[FakeAuthFilter].getName(),
+      "spark.history.ui.acls.enable" -> "true",
+      "spark.history.ui.admin.acls" -> admin)
+    Seq((owner, 17), (admin, 17), (other, 17)).foreach { case (user, expectedApplicationsNum) =>
+      val (_, response, _) = getContentAndCode("applications", server.boundPort,
+        Seq(FakeAuthFilter.FAKE_HTTP_USER -> user))
+      assert(response.isDefined)
+      parse(response.get) match {
+        case apps: JArray =>
+          assert(apps.children.size == expectedApplicationsNum)
+        case _ => fail()
+      }
+    }
+  }
+
   test("SPARK-33215: speed up event log download by skipping UI rebuild") {
     val appId = "local-1430917381535"
 
@@ -732,8 +777,12 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
     }
   }
 
-  def getContentAndCode(path: String, port: Int = port): (Int, Option[String], Option[String]) = {
-    HistoryServerSuite.getContentAndCode(new URI(s"http://$localhost:$port/api/v1/$path").toURL)
+  def getContentAndCode(
+      path: String,
+      port: Int = port,
+      headers: Seq[(String, String)] = Nil): (Int, Option[String], Option[String]) = {
+    HistoryServerSuite.getContentAndCode(new URI(s"http://$localhost:$port/api/v1/$path").toURL,
+      headers)
   }
 
   def getUrl(path: String): String = {
@@ -772,15 +821,22 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
 
 object HistoryServerSuite {
 
-  def getContentAndCode(url: URL): (Int, Option[String], Option[String]) = {
-    val (code, in, errString) = connectAndGetInputStream(url)
+  def getContentAndCode(
+      url: URL,
+      headers: Seq[(String, String)] = Nil): (Int, Option[String], Option[String]) = {
+    val (code, in, errString) = connectAndGetInputStream(url, headers)
     val inString = in.map(Utils.toString)
     (code, inString, errString)
   }
 
-  def connectAndGetInputStream(url: URL): (Int, Option[InputStream], Option[String]) = {
+  def connectAndGetInputStream(
+      url: URL,
+      headers: Seq[(String, String)] = Nil): (Int, Option[InputStream], Option[String]) = {
     val connection = url.openConnection().asInstanceOf[HttpURLConnection]
     connection.setRequestMethod("GET")
+    headers.foreach { case (key, value) =>
+      connection.addRequestProperty(key, value)
+    }
     connection.connect()
     val code = connection.getResponseCode()
     val inStream = try {

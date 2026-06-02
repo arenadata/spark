@@ -16,10 +16,13 @@
  */
 package org.apache.spark.deploy.k8s.features
 
+import java.io._
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.Path
 
 import scala.jdk.CollectionConverters._
+import scala.util.Using
 
 import io.fabric8.kubernetes.api.model.ConfigMap
 
@@ -47,8 +50,24 @@ class HadoopConfDriverFeatureStepSuite extends SparkFunSuite {
     val confFiles = Set("core-site.xml", "hdfs-site.xml")
 
     confFiles.foreach { f =>
-      Files.writeString(new File(confDir, f).toPath, "some data")
+      Files.writeString(Path.of(confDir.getPath, f), "some data")
     }
+
+    val numbers = List(10, 200, 3000, 40000)
+    val binaryFile = new File(confDir, "another.bin").getAbsolutePath()
+
+    Using(new DataOutputStream(new BufferedOutputStream(new FileOutputStream(binaryFile)))) {
+      dos =>
+        numbers.foreach(dos.writeInt)
+    }.recover {
+      case e: IOException => e.printStackTrace()
+    }
+
+    val nonReadableFile = new File(confDir, "non-readable.xml")
+
+    Files.writeString(nonReadableFile.toPath, "some data")
+
+    nonReadableFile.setReadable(false)
 
     val sparkConf = new SparkConfWithEnv(Map(ENV_HADOOP_CONF_DIR -> confDir.getAbsolutePath()))
     val conf = KubernetesTestConf.createDriverConf(sparkConf = sparkConf)

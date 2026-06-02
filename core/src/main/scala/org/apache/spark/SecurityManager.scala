@@ -232,7 +232,7 @@ private[spark] class SecurityManager(
    * making UI requests.
    */
   def checkAdminPermissions(user: String): Boolean = {
-    isUserInACL(user, adminAcls, adminAclsGroups)
+    checkApplicationViewPermissions(user, aclsEnabled(), adminAcls, adminAclsGroups, sparkConf)
   }
 
   /**
@@ -248,7 +248,7 @@ private[spark] class SecurityManager(
   def checkUIViewPermissions(user: String): Boolean = {
     logDebug("user=" + user + " aclsEnabled=" + aclsEnabled() + " viewAcls=" +
       viewAcls.mkString(",") + " viewAclsGroups=" + viewAclsGroups.mkString(","))
-    isUserInACL(user, viewAcls, viewAclsGroups)
+    checkApplicationViewPermissions(user, aclsEnabled(), viewAcls, viewAclsGroups, sparkConf)
   }
 
   /**
@@ -264,7 +264,7 @@ private[spark] class SecurityManager(
   def checkModifyPermissions(user: String): Boolean = {
     logDebug("user=" + user + " aclsEnabled=" + aclsEnabled() + " modifyAcls=" +
       modifyAcls.mkString(",") + " modifyAclsGroups=" + modifyAclsGroups.mkString(","))
-    isUserInACL(user, modifyAcls, modifyAclsGroups)
+    checkApplicationViewPermissions(user, aclsEnabled(), modifyAcls, modifyAclsGroups, sparkConf)
   }
 
   /**
@@ -399,23 +399,6 @@ private[spark] class SecurityManager(
     }
   }
 
-  private def isUserInACL(
-      user: String,
-      aclUsers: Set[String],
-      aclGroups: Set[String]): Boolean = {
-    if (user == null ||
-        !aclsEnabled() ||
-        aclUsers.contains(WILDCARD_ACL) ||
-        aclUsers.contains(user) ||
-        aclGroups.contains(WILDCARD_ACL)) {
-      true
-    } else {
-      val userGroups = Utils.getCurrentUserGroups(sparkConf, user)
-      logDebug(s"user $user is in groups ${userGroups.mkString(",")}")
-      aclGroups.exists(userGroups.contains(_))
-    }
-  }
-
   // Default SecurityManager only has a single secret key, so ignore appId.
   override def getSaslUser(appId: String): String = getSaslUser()
   override def getSecretKey(appId: String): String = getSecretKey()
@@ -444,7 +427,9 @@ private[spark] class SecurityManager(
   }
 }
 
-private[spark] object SecurityManager {
+private[spark] object SecurityManager extends Logging {
+  // allow all users/groups to have view/modify permissions
+  val WILDCARD_ACL = "*"
 
   val SPARK_AUTH_CONF = NETWORK_AUTH_ENABLED.key
   val SPARK_AUTH_SECRET_CONF = AUTH_SECRET.key
@@ -454,4 +439,26 @@ private[spark] object SecurityManager {
 
   // key used to store the spark secret in the Hadoop UGI
   val SECRET_LOOKUP_KEY = new Text("sparkCookie")
+
+  def checkApplicationViewPermissions(
+      user: String,
+      aclsEnabled: Boolean,
+      usersAcls: Set[String],
+      groupAcls: Set[String],
+      conf: SparkConf): Boolean = {
+    if (!aclsEnabled || user == null || usersAcls.contains(user) ||
+      usersAcls.contains(WILDCARD_ACL) || groupAcls.contains(WILDCARD_ACL)) {
+      return true
+    }
+    val currentUserGroups = Utils.getCurrentUserGroups(conf, user)
+    logDebug("userGroups=" + currentUserGroups.mkString(","))
+    groupAcls.exists(currentUserGroups.contains)
+  }
+
+  /**
+   * Split a comma separated String, filter out any empty items, and return a Set of strings
+   */
+  def stringToSet(list: String): Set[String] = {
+    list.split(',').map(_.trim).filter(!_.isEmpty).toSet
+  }
 }

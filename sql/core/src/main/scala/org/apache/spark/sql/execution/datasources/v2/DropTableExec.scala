@@ -21,6 +21,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.connector.catalog.{Identifier, TableCatalog}
 import org.apache.spark.sql.errors.QueryCompilationErrors
+import org.apache.spark.sql.execution.command.CommandUtils.isPurgeableExternalTable
 import org.apache.spark.util.ArrayImplicits._
 
 /**
@@ -36,7 +37,11 @@ case class DropTableExec(
   override def run(): Seq[InternalRow] = {
     if (catalog.tableExists(ident)) {
       invalidateCache()
-      if (purge) catalog.purgeTable(ident) else catalog.dropTable(ident)
+      if (purge || isPurgeableExternalTable(catalog.loadTable(ident))) {
+        catalog.purgeTable(ident)
+      } else {
+        catalog.dropTable(ident)
+      }
     } else if (!ifExists) {
       val nameParts = (catalog.name() +: ident.namespace() :+ ident.name()).toImmutableArraySeq
       throw QueryCompilationErrors.noSuchTableError(nameParts)

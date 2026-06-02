@@ -208,8 +208,10 @@ class HistoryServer(
    *
    * @return List of all known applications.
    */
-  def getApplicationList(): Iterator[ApplicationInfo] = {
-    provider.getListing()
+  def getApplicationList(): Iterator[ApplicationInfo] = getApplicationList(None)
+
+  def getApplicationList(user: Option[String]): Iterator[ApplicationInfo] = {
+    provider.getListing(user: Option[String])
   }
 
   def getEventLogsUnderProcess(): Int = {
@@ -220,13 +222,17 @@ class HistoryServer(
     provider.getLastUpdatedTime()
   }
 
-  def getApplicationInfoList: Iterator[ApplicationInfo] = {
-    getApplicationList()
+  def getApplicationInfoList(): Iterator[ApplicationInfo] = {
+    getApplicationInfoList(None)
   }
 
-  override def getApplicationInfoList(max: Int)(
+  def getApplicationInfoList(user: Option[String]): Iterator[ApplicationInfo] = {
+    getApplicationList(user: Option[String])
+  }
+
+  override def getApplicationInfoList(user: Option[String], max: Int)(
       filter: ApplicationInfo => Boolean): Iterator[ApplicationInfo] = {
-    provider.getListing(max)(filter)
+    provider.getListing(user, max)(filter)
   }
 
   def getApplicationInfo(appId: String): Option[ApplicationInfo] = {
