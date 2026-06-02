@@ -604,6 +604,18 @@ jobs:
           GITHUB_USERNAME: ${{ github.actor }}
         run: ./dev/test-dependencies.sh
 
+      - name: Configure sbt credentials for GitHub Packages
+        run: |
+          mkdir -p ~/.sbt/1.0
+          cat > ~/.sbt/1.0/credentials.sbt <<EOF
+          credentials += Credentials(
+            "GitHub Package Registry",
+            "maven.pkg.github.com",
+            sys.env.getOrElse("GITHUB_USERNAME", ""),
+            sys.env.getOrElse("GITHUB_TOKEN", "")
+          )
+          EOF
+
       - name: Scala linter
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
