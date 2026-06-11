@@ -611,6 +611,7 @@ pyspark_sql = Module(
         "pyspark.sql.tests.test_readwriter",
         "pyspark.sql.tests.test_serde",
         "pyspark.sql.tests.test_session",
+        "pyspark.sql.tests.test_nearest_by_join",
         "pyspark.sql.tests.test_subquery",
         "pyspark.sql.tests.test_types",
         "pyspark.sql.tests.test_geographytype",
@@ -1173,6 +1174,7 @@ pyspark_connect = Module(
         "pyspark.sql.tests.connect.test_parity_observation",
         "pyspark.sql.tests.connect.test_parity_repartition",
         "pyspark.sql.tests.connect.test_parity_stat",
+        "pyspark.sql.tests.connect.test_parity_nearest_by_join",
         "pyspark.sql.tests.connect.test_parity_subquery",
         "pyspark.sql.tests.connect.test_parity_types",
         "pyspark.sql.tests.connect.test_parity_column",
@@ -1187,7 +1189,6 @@ pyspark_connect = Module(
         "pyspark.sql.tests.connect.test_parity_python_datasource",
         "pyspark.sql.tests.connect.test_parity_frame_plot",
         "pyspark.sql.tests.connect.test_parity_frame_plot_plotly",
-        "pyspark.sql.tests.connect.test_session",
         "pyspark.sql.tests.connect.test_utils",
         "pyspark.sql.tests.connect.client.test_artifact",
         "pyspark.sql.tests.connect.client.test_artifact_localcluster",
@@ -1195,7 +1196,7 @@ pyspark_connect = Module(
         "pyspark.sql.tests.connect.client.test_client_call_stack_trace",
         "pyspark.sql.tests.connect.client.test_client_retries",
         "pyspark.sql.tests.connect.client.test_reattach",
-        "pyspark.sql.tests.connect.test_resources",
+        "pyspark.sql.tests.connect.test_parity_resources",
         "pyspark.sql.tests.connect.shell.test_progress",
         "pyspark.sql.tests.connect.test_df_debug",
         "pyspark.sql.tests.connect.arrow.test_parity_arrow",
@@ -1670,6 +1671,40 @@ docker_integration_tests = Module(
         None if "GITHUB_ACTIONS" not in os.environ else {"ENABLE_DOCKER_INTEGRATION_TESTS": "1"}
     ),
     test_tags=["org.apache.spark.tags.DockerTest"],
+)
+
+
+# dev_tools is a pseudo module that contains all the dev related files that
+# won't impact the CI build and tests (except for CI which is forced to
+# run anyway).
+# This module is created so modifying files in this module won't trigger any
+# tests to run.
+dev_tools = Module(
+    name="dev-tools",
+    dependencies=[],
+    source_file_regexes=[
+        ".*README.md",
+        ".*AGENTS.md",
+        r".*\.gitignore",
+        "CONTRIBUTING.md",
+        ".asf.yaml",
+        "SECURITY.md",
+        "NOTICE-binary",
+        "LICENSE-binary",
+        "ui-test/package.json",
+        "ui-test/package-lock.json",
+        "scalastyle-config.xml",
+        "dev/checkstyle.xml",
+        "dev/checkstyle-suppressions.xml",
+        "dev/spark-test-image/lint/Dockerfile",
+        "dev/lint-python",
+        "dev/lint-scala",
+        "dev/reformat-python",
+        "dev/structured_logging_style.py",
+        "dev/merge_spark_pr.py",
+        "dev/create_spark_jira.py",
+        "dev/create-release/",
+    ],
 )
 
 # The root module is a dummy module which is used to run all of the tests.

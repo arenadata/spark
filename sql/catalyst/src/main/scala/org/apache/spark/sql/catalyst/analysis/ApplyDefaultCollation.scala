@@ -134,7 +134,7 @@ object ApplyDefaultCollation extends Rule[LogicalPlan] {
       case alterViewAs: AlterViewAs =>
         alterViewAs.child match {
           case resolvedPersistentView: ResolvedPersistentView =>
-            resolvedPersistentView.metadata.collation
+            Option(resolvedPersistentView.info.properties.get(TableCatalog.PROP_COLLATION))
           case resolvedTempView: ResolvedTempView =>
             resolvedTempView.metadata.collation
           case _ => None
@@ -197,7 +197,7 @@ object ApplyDefaultCollation extends Rule[LogicalPlan] {
             collation = getCollationFromSchemaMetadata(catalog, identifier.namespace())))
 
         case createView@CreateView(ResolvedIdentifier(
-        catalog: SupportsNamespaces, identifier), _, _, _, _, _, _, _, _, _)
+        catalog: SupportsNamespaces, identifier), _, _, _, _, _, _, _, _, _, _, _)
           if createView.collation.isEmpty =>
           val newCreateView = CurrentOrigin.withOrigin(createView.origin) {
             createView.copy(
@@ -205,20 +205,6 @@ object ApplyDefaultCollation extends Rule[LogicalPlan] {
           }
           newCreateView.copyTagsFrom(createView)
           newCreateView
-
-        // We match against ResolvedPersistentView because temporary views don't have a
-        // schema/catalog.
-        case alterViewAs@AlterViewAs(resolvedPersistentView@ResolvedPersistentView(
-        catalog: SupportsNamespaces, identifier, _), _, _)
-          if resolvedPersistentView.metadata.collation.isEmpty =>
-          val newResolvedPersistentView = resolvedPersistentView.copy(
-            metadata = resolvedPersistentView.metadata.copy(
-              collation = getCollationFromSchemaMetadata(catalog, identifier.namespace())))
-          val newAlterViewAs = CurrentOrigin.withOrigin(alterViewAs.origin) {
-            alterViewAs.copy(child = newResolvedPersistentView)
-          }
-          newAlterViewAs.copyTagsFrom(alterViewAs)
-          newAlterViewAs
 
         case createUserDefinedFunction@CreateUserDefinedFunction(
         ResolvedIdentifier(catalog: SupportsNamespaces, identifier),
