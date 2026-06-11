@@ -79,6 +79,18 @@ class InMemoryRowLevelOperationTable private (
   // (operation, id, metadata, row)
   var lastWriteLog: Seq[InternalRow] = Seq.empty
 
+  // Set by InMemoryRowLevelOperationTableCatalog.loadTable when this instance is a snapshot copy
+  // pinned at load time. A real transactional catalog (Delta/Iceberg) persists TRUNCATE through a
+  // commit, but the default SupportsDelete.truncateTable() only mutates this snapshot's own data,
+  // which is then discarded. Forward the wipe to the live table so TRUNCATE TABLE behaves like a
+  // real catalog rather than silently no-op'ing.
+  private[catalog] var liveTableForTruncate: Option[InMemoryRowLevelOperationTable] = None
+
+  override def truncateTable(): Boolean = liveTableForTruncate match {
+    case Some(live) => live.truncateTable() // live has no back-ref -> default truncate on itself
+    case None => super.truncateTable()
+  }
+
   override def copy(): Table = {
     val copied = InMemoryRowLevelOperationTable.withColumns(
       name = name,

@@ -30,13 +30,10 @@ jobs:
         include:
           - name: "core / utils / tags"
             slug: "core-utils-tags"
-            modules: ":spark-core_2.13,:spark-launcher_2.13,:spark-network-common_2.13,:spark-network-shuffle_2.13,:spark-network-yarn_2.13,:spark-unsafe_2.13,:spark-kvstore_2.13,:spark-tags_2.13,:spark-sketch_2.13,:spark-common-utils_2.13"
-          - name: "graphx / examples / repl"
-            slug: "graphx-examples-repl"
-            modules: ":spark-graphx_2.13,:spark-examples_2.13,:spark-repl_2.13"
-          - name: "catalyst / sql-api / hive-thriftserver"
-            slug: "catalyst-sql-api-hive-thriftserver"
-            modules: ":spark-sql-api_2.13,:spark-catalyst_2.13,:spark-hive-thriftserver_2.13"
+            modules: ":spark-core_2.13,:spark-launcher_2.13,:spark-network-common_2.13,:spark-network-shuffle_2.13,:spark-network-yarn_2.13,:spark-unsafe_2.13,:spark-kvstore_2.13,:spark-tags_2.13,:spark-sketch_2.13,:spark-common-utils_2.13,:spark-common-utils-java_2.13,:spark-udf-worker-core_2.13"
+          - name: "catalyst / sql-api / hive-thriftserver / pipelines / graphx / examples / repl"
+            slug: "catalyst-graphx"
+            modules: ":spark-sql-api_2.13,:spark-catalyst_2.13,:spark-hive-thriftserver_2.13,:spark-pipelines_2.13,:spark-graphx_2.13,:spark-examples_2.13,:spark-repl_2.13"
           - name: "sql - extended tests"
             slug: "sql"
             modules: ":spark-sql_2.13"
@@ -52,10 +49,19 @@ jobs:
           - name: "hive"
             slug: "hive"
             modules: ":spark-hive_2.13"
-          - name: "streaming / mllib / yarn / k8s / connect / protobuf / kafka / avro"
-            slug: "streaming-mllib-yarn-k8s-connect-protobuf-kafka-avro"
-            modules: ":spark-streaming_2.13,:spark-sql-kafka-0-10_2.13,:spark-streaming-kafka-0-10_2.13,:spark-token-provider-kafka-0-10_2.13,:spark-mllib-local_2.13,:spark-mllib_2.13,:spark-yarn_2.13,:spark-kubernetes_2.13,:spark-hadoop-cloud_2.13,:spark-connect_2.13,:spark-connect-common_2.13,:spark-connect-client-jvm_2.13,:spark-protobuf_2.13,:spark-avro_2.13,:spark-assembly_2.13"
+          - name: "mllib"
+            slug: "mllib"
+            modules: ":spark-mllib-local_2.13,:spark-mllib_2.13"
+          - name: "connect / protobuf"
+            slug: "connect-protobuf"
+            modules: ":spark-connect_2.13,:spark-connect-common_2.13,:spark-connect-client-jvm_2.13,:spark-connect-client-jdbc_2.13,:spark-protobuf_2.13"
             extra: -Dtest.exclude.tags=org.apache.spark.tags.AmmoniteTest
+          - name: "streaming / kafka / avro"
+            slug: "streaming-kafka-avro"
+            modules: ":spark-streaming_2.13,:spark-sql-kafka-0-10_2.13,:spark-streaming-kafka-0-10_2.13,:spark-token-provider-kafka-0-10_2.13,:spark-avro_2.13"
+          - name: "yarn / k8s / hadoop-cloud / assembly"
+            slug: "yarn-k8s-hadoop-cloud-assembly"
+            modules: ":spark-yarn_2.13,:spark-kubernetes_2.13,:spark-hadoop-cloud_2.13,:spark-assembly_2.13"
     steps:
       - uses: actions/checkout@v6
 
@@ -77,8 +83,8 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install 'numpy>=1.20.0' 'pyarrow' 'pandas' 'scipy' \
-            'unittest-xml-reporting' 'grpcio==1.56.0' 'protobuf==4.25.3' \
-            'grpcio-status==1.56.0' 'googleapis-common-protos==1.56.4' \
+            'unittest-xml-reporting' 'grpcio==1.76.0' 'protobuf==6.33.5' \
+            'grpcio-status==1.76.0' 'googleapis-common-protos==1.71.0' \
             'zstandard==0.25.0'
 
       - name: Build dependent modules (compile main+tests, install incl. test-jars)
@@ -149,23 +155,19 @@ jobs:
       matrix:
         include:
           - name: sql
-            modules: pyspark-sql,pyspark-resource,pyspark-testing
-          - name: core
-            modules: pyspark-core,pyspark-streaming
+            modules: pyspark-sql,pyspark-resource,pyspark-testing,pyspark-core,pyspark-errors,pyspark-logger
           - name: ml
-            modules: pyspark-mllib,pyspark-ml
+            modules: pyspark-mllib,pyspark-ml,pyspark-ml-connect,pyspark-pipelines
+          - name: streaming
+            modules: pyspark-streaming,pyspark-structured-streaming,pyspark-structured-streaming-connect
+          - name: connect
+            modules: pyspark-connect
           - name: pandas
             modules: pyspark-pandas
           - name: pandas-slow
             modules: pyspark-pandas-slow
-          - name: connect
-            modules: pyspark-connect
-          - name: pandas-connect
-            modules: pyspark-pandas-connect
-          - name: pandas-slow-connect
-            modules: pyspark-pandas-slow-connect
-          - name: errors
-            modules: pyspark-errors
+          - name: pandas-connect-and-slow
+            modules: pyspark-pandas-connect,pyspark-pandas-slow-connect
     env:
       MODULES_TO_TEST: ${{ matrix.modules }}
       PYTHON_TO_TEST: python3.10
@@ -192,11 +194,12 @@ jobs:
             'numpy==1.26.4' 'pyarrow==18.0.0' 'pandas==2.2.0' 'scipy' \
             'unittest-xml-reporting' 'coverage' \
             'memory-profiler' 'plotly<6' 'matplotlib' \
-            'grpcio==1.56.0' 'grpcio-status==1.56.0' \
-            'protobuf==4.25.3' 'googleapis-common-protos==1.56.4' \
+            'grpcio==1.76.0' 'grpcio-status==1.76.0' \
+            'protobuf==6.33.5' 'googleapis-common-protos==1.71.0' \
             'graphviz>=0.20' 'openpyxl' \
             'scikit-learn==1.1.*' 'mlflow==3.12.0' \
-            'torch==2.0.1' 'torchvision==0.15.2' 'torcheval'
+            'torch==2.5.1' 'torchvision==0.20.1' 'torcheval' \
+            'zstandard==0.25.0'
 
       - name: Build Spark (full reactor including assembly)
         env:

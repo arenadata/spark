@@ -46,7 +46,10 @@ class InMemoryRowLevelOperationTableCatalog
   // `Transaction.registerScans` is consulted.
   override def loadTable(ident: Identifier): Table = {
     liveTable(ident) match {
-      case rlot: InMemoryRowLevelOperationTable => rlot.copy()
+      case rlot: InMemoryRowLevelOperationTable =>
+        val snapshot = rlot.copy().asInstanceOf[InMemoryRowLevelOperationTable]
+        snapshot.liveTableForTruncate = Some(rlot)
+        snapshot
       case other => other
     }
   }
