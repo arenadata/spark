@@ -321,6 +321,17 @@ def _assert_pandas_almost_equal(
 
 
 class PandasOnSparkTestUtils:
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Pin pandas display options so native pandas `repr` output is stable and never
+        # truncated, matching pandas-on-Spark's repr. PandasOnSparkTestCase sets these in
+        # its own setUpClass, but the Spark Connect parity tests mix in this class with
+        # ReusedConnectTestCase (which does not), so set them here to cover both paths.
+        pd.set_option("display.max_columns", None)  # never truncate columns
+        pd.set_option("display.expand_frame_repr", False)  # avoid line wrapping
+        pd.set_option("display.show_dimensions", False)  # hide [N rows x M cols]
+
     def convert_str_to_lambda(self, func: str):
         """
         This function converts `func` str to lambda call

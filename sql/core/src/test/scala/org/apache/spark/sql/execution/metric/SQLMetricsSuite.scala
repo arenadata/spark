@@ -125,6 +125,23 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     }
   }
 
+  test("SPARK-57313: Sample numOutputRows metric") {
+    Seq(false, true).foreach { withReplacement =>
+      Seq("false", "true").foreach { enableWholeStage =>
+        withSQLConf(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> enableWholeStage) {
+          val df = spark.range(0, 1000, 1, 1)
+            .sample(withReplacement = withReplacement, fraction = 0.5, seed = 1)
+          val expectedRows = df.collect().length
+          sparkContext.listenerBus.waitUntilEmpty()
+          val sample = df.queryExecution.executedPlan.collect {
+            case s: SampleExec => s
+          }
+          assert(sample.size == 1)
+          assert(sample.head.metrics("numOutputRows").value == expectedRows)
+        }
+      }
+    }
+  }
 
   test("Recursive CTEs metrics") {
     withSQLConf(SQLConf.OPTIMIZER_EXCLUDED_RULES.key -> "") {
@@ -736,6 +753,21 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
         1L -> ("Project" -> Map()),
         2L -> ("LocalTableScan" -> Map("number of output rows" -> 2L)),
         3L -> ("LocalTableScan" -> Map("number of output rows" -> 2L))))
+    }
+  }
+
+  test("UnionExec.numOutputRows reports total row count under fusion") {
+    withSQLConf(SQLConf.WHOLESTAGE_UNION_CODEGEN_ENABLED.key -> "true") {
+      val name = "demo_view"
+      withView(name) {
+        sql(s"CREATE OR REPLACE VIEW $name AS VALUES 1,2")
+        val union = spark.table(name).union(spark.table(name))
+        union.collect()
+        val unionExec = union.queryExecution.executedPlan.collectFirst {
+          case u: UnionExec => u
+        }.get
+        assert(unionExec.metrics("numOutputRows").value == 4L)
+      }
     }
   }
 

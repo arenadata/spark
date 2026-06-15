@@ -659,6 +659,7 @@ spark.sql.inMemoryColumnarStorage.hugeVectorReserveRatio
 spark.sql.inMemoryColumnarStorage.hugeVectorThreshold
 spark.sql.inMemoryColumnarStorage.partitionPruning
 spark.sql.inMemoryTableScanStatistics.enable
+spark.sql.insertNestedTypeCoercion.enabled
 spark.sql.join.preferSortMergeJoin
 spark.sql.json.enableExactStringParsing
 spark.sql.json.enablePartialResults
@@ -1035,6 +1036,7 @@ spark.sql.streaming.numRecentProgressUpdates
 spark.sql.streaming.offsetLog.formatVersion
 spark.sql.streaming.optimizeOneRowPlan.enabled
 spark.sql.streaming.pollingDelay
+spark.sql.streaming.queryEvolution.enableSinkEvolution
 spark.sql.streaming.queryEvolution.enableSourceEvolution
 spark.sql.streaming.ratioExtraSpaceAllowedInCheckpoint
 spark.sql.streaming.realTimeMode.allowlistCheck
@@ -1173,6 +1175,7 @@ spark.taskMetrics.trackUpdatedBlockStatuses
 spark.test.noStageRetry
 spark.testing
 spark.testing.dynamicAllocation.schedule.enabled
+spark.testing.injectShuffleFetchFailures
 spark.testing.memory
 spark.testing.nCoresPerExecutor
 spark.testing.nExecutorsPerHost

@@ -417,11 +417,20 @@ class RocksDBStateStoreIntegrationSuite extends StreamTest
           inputData.addData(1, 2, 3, 4)
           query.processAllAvailable()
 
-          // With 2 partitions and bounded memory enabled, we should have
-          // 2 bounded memory providers registered and no unbounded ones
+          // With 2 partitions and bounded memory enabled, we should have 2 bounded memory
+          // providers registered for this query.
+          //
+          // We intentionally do NOT assert getNumRocksDBInstances(false) == 0 here.
+          // RocksDBMemoryManager is a global singleton whose instanceMemoryMap is shared across
+          // all tests in the JVM. A previous test running in unbounded mode can leave a straggler
+          // updateMemoryUsage(..., isBoundedMemory = false) call in flight that lands in the map
+          // after this test's resetWriteBufferManagerAndCache and is never followed by an
+          // unregisterInstance (the store has already closed). That stray unbounded entry then
+          // persists for the rest of the JVM, so an unbounded count of 0 cannot be guaranteed and
+          // eventually{} cannot drain it (this was the SPARK-55993 flake: "1 did not equal 0").
+          // Counting this query's bounded instances is the stable, meaningful signal.
           eventually(timeout(Span(10, Seconds)), interval(Span(500, Millis))) {
             assert(RocksDBMemoryManager.getNumRocksDBInstances(true) == 2)
-            assert(RocksDBMemoryManager.getNumRocksDBInstances(false) == 0)
           }
 
           // Add more data and check providers remain registered

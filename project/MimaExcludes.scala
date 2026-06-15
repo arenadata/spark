@@ -55,7 +55,17 @@ object MimaExcludes {
     ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.status.api.v1.ApplicationAttemptInfo.copy"),
     ProblemFilters.exclude[MissingTypesProblem]("org.apache.spark.status.api.v1.ApplicationAttemptInfo$"),
     // [SPARK-56330][CORE] Add TaskInterruptListener to TaskContext for interrupt notifications
-    ProblemFilters.exclude[ReversedMissingMethodProblem]("org.apache.spark.TaskContext.addTaskInterruptListener")
+    ProblemFilters.exclude[ReversedMissingMethodProblem]("org.apache.spark.TaskContext.addTaskInterruptListener"),
+    // [SPARK-56700][SS] Make DataStreamReader.name public
+    ProblemFilters.exclude[ReversedMissingMethodProblem]("org.apache.spark.sql.streaming.DataStreamReader.name"),
+    // [SPARK-56395][SQL] Add NEAREST BY top-K ranking join
+    ProblemFilters.exclude[ReversedMissingMethodProblem]("org.apache.spark.sql.Dataset.nearestByJoin"),
+    // [SPARK-57332][SQL] MySQLDialect no longer overrides the visit methods below; the public
+    // Scala overrides on its private SQL builder are replaced by the inherited protected Java
+    // methods of V2ExpressionSQLBuilder. MySQLDialect is private, so this is not a public API.
+    ProblemFilters.exclude[InaccessibleMethodProblem]("org.apache.spark.sql.connector.util.V2ExpressionSQLBuilder.visitStartsWith"),
+    ProblemFilters.exclude[InaccessibleMethodProblem]("org.apache.spark.sql.connector.util.V2ExpressionSQLBuilder.visitEndsWith"),
+    ProblemFilters.exclude[InaccessibleMethodProblem]("org.apache.spark.sql.connector.util.V2ExpressionSQLBuilder.visitContains")
   )
 
   // Exclude rules for 4.1.x from 4.0.0
@@ -88,7 +98,10 @@ object MimaExcludes {
     ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.sql.artifact.ArtifactManager.cachedBlockIdList"),
 
     // [SPARK-54323][PYTHON] Change the way to access logs to TVF instead of system view
-    ProblemFilters.exclude[ReversedMissingMethodProblem]("org.apache.spark.sql.TableValuedFunction.python_worker_logs")
+    ProblemFilters.exclude[ReversedMissingMethodProblem]("org.apache.spark.sql.TableValuedFunction.python_worker_logs"),
+
+    // [SPARK-56719][SS] Add DataStreamWriter.name() API for sink evolution
+    ProblemFilters.exclude[ReversedMissingMethodProblem]("org.apache.spark.sql.streaming.DataStreamWriter.name")
   )
 
   // Default exclude rules

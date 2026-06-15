@@ -1556,6 +1556,23 @@ abstract class DefaultCollationTestSuiteV1 extends DefaultCollationTestSuite {
     }
   }
 
+  testString("ALTER SCHEMA DEFAULT COLLATION does not retroactively change a view's collation") {
+    _ =>
+    withDatabase(testSchema) {
+      sql(s"CREATE SCHEMA $testSchema")
+      sql(s"USE $testSchema")
+      withView(testView) {
+        sql(s"CREATE VIEW $testView AS SELECT 'a' AS c1")
+        assertTableColumnCollation(testView, "c1", "UTF8_BINARY")
+
+        sql(s"ALTER SCHEMA $testSchema DEFAULT COLLATION UTF8_LCASE")
+        sql(s"ALTER VIEW $testView AS SELECT 'x' AS c1, 'y' AS c2")
+        assertTableColumnCollation(testView, "c1", "UTF8_BINARY")
+        assertTableColumnCollation(testView, "c2", "UTF8_BINARY")
+      }
+    }
+  }
+
   private def testCreateViewWithSchemaLevelCollation(
       dataType: String,
       schemaDefaultCollation: String,
