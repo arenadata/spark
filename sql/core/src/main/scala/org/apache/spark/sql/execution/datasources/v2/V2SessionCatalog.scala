@@ -94,7 +94,8 @@ class V2SessionCatalog(catalog: SessionCatalog)
       // `V1Table` if the custom session catalog is present.
       if (table.provider.isDefined && !hasCustomSessionCatalog) {
         val qualifiedTableName = QualifiedTableName(
-          table.identifier.catalog.get, table.database, table.identifier.table)
+          table.identifier.catalog.getOrElse(CatalogManager.SESSION_CATALOG_NAME),
+          table.database, table.identifier.table)
         // Check if the table is in the v1 table cache to skip the v2 table lookup.
         if (catalog.getCachedTable(qualifiedTableName) != null) {
           return V1Table(table)
