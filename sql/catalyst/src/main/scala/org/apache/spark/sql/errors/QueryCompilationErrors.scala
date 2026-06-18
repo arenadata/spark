@@ -834,7 +834,8 @@ private[sql] object QueryCompilationErrors extends QueryErrorsBase with Compilat
       ident: TableIdentifier,
       operation: String): Throwable = {
     unsupportedTableOperationError(
-      Seq(ident.catalog.get, ident.database.get, ident.table), operation)
+      Seq(ident.catalog.getOrElse(CatalogManager.SESSION_CATALOG_NAME),
+        ident.database.get, ident.table), operation)
   }
 
   private def unsupportedTableOperationError(
