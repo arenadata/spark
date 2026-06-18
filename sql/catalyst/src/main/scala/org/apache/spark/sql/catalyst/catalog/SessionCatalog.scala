@@ -229,7 +229,8 @@ class SessionCatalog(
   def invalidateCachedTable(name: TableIdentifier): Unit = {
     val qualified = qualifyIdentifier(name)
     invalidateCachedTable(QualifiedTableName(
-      qualified.catalog.get, qualified.database.get, qualified.table))
+      qualified.catalog.getOrElse(CatalogManager.SESSION_CATALOG_NAME),
+      qualified.database.get, qualified.table))
   }
 
   /** This method provides a way to invalidate all the cached plans. */
@@ -1133,7 +1134,8 @@ class SessionCatalog(
     getLocalOrGlobalTempView(name).map(_.refresh).getOrElse {
       val qualifiedIdent = qualifyIdentifier(name)
       val qualifiedTableName = QualifiedTableName(
-        qualifiedIdent.catalog.get, qualifiedIdent.database.get, qualifiedIdent.table)
+        qualifiedIdent.catalog.getOrElse(CatalogManager.SESSION_CATALOG_NAME),
+        qualifiedIdent.database.get, qualifiedIdent.table)
       tableRelationCache.invalidate(qualifiedTableName)
     }
   }

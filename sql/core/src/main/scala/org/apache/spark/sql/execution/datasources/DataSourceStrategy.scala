@@ -40,7 +40,7 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.catalyst.streaming.StreamingRelationV2
 import org.apache.spark.sql.catalyst.types.DataTypeUtils
 import org.apache.spark.sql.catalyst.util.{GeneratedColumn, ResolveDefaultColumns, V2ExpressionBuilder}
-import org.apache.spark.sql.connector.catalog.{SupportsRead, V1Table}
+import org.apache.spark.sql.connector.catalog.{CatalogManager, SupportsRead, V1Table}
 import org.apache.spark.sql.connector.catalog.TableCapability._
 import org.apache.spark.sql.connector.expressions.{Expression => V2Expression, NullOrdering, SortDirection, SortOrder => V2SortOrder, SortValue}
 import org.apache.spark.sql.connector.expressions.aggregate.{AggregateFunc, Aggregation}
@@ -242,7 +242,9 @@ class FindDataSourceTable(sparkSession: SparkSession) extends Rule[LogicalPlan] 
   private def readDataSourceTable(
       table: CatalogTable, extraOptions: CaseInsensitiveStringMap): LogicalPlan = {
     val qualifiedTableName =
-      QualifiedTableName(table.identifier.catalog.get, table.database, table.identifier.table)
+      QualifiedTableName(
+        table.identifier.catalog.getOrElse(CatalogManager.SESSION_CATALOG_NAME),
+        table.database, table.identifier.table)
     val catalog = sparkSession.sessionState.catalog
     val dsOptions = DataSourceUtils.generateDatasourceOptions(extraOptions, table)
     catalog.getCachedPlan(qualifiedTableName, () => {
