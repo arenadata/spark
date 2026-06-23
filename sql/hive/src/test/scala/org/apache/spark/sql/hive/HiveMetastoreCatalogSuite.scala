@@ -129,6 +129,31 @@ class HiveMetastoreCatalogSuite extends TestHiveSingleton with SQLTestUtils {
       assert(schema == expectedSchema)
     }
   }
+
+  test("SPARK-49211: read convertible Hive table with v1IdentifierNoCatalog enabled") {
+    withTable("t") {
+      sql("CREATE TABLE t (id INT) STORED AS PARQUET")
+      sql("INSERT INTO t VALUES (1)")
+      withSQLConf(SQLConf.LEGACY_NON_IDENTIFIER_OUTPUT_CATALOG_NAME.key -> "true") {
+        assert(spark.table("t").collect() === Array(Row(1)))
+        sql("REFRESH TABLE t")
+        assert(spark.table("t").collect() === Array(Row(1)))
+      }
+    }
+  }
+
+  test("SPARK-49211: unsupported v1 table operation reports a clean error " +
+    "with v1IdentifierNoCatalog enabled") {
+    withTable("t") {
+      sql("CREATE TABLE t (id INT) STORED AS PARQUET")
+      withSQLConf(SQLConf.LEGACY_NON_IDENTIFIER_OUTPUT_CATALOG_NAME.key -> "true") {
+        val e = intercept[AnalysisException] {
+          sql("ALTER TABLE t REPLACE COLUMNS (id INT)")
+        }
+        assert(e.getErrorClass == "UNSUPPORTED_FEATURE.TABLE_OPERATION")
+      }
+    }
+  }
 }
 
 class DataSourceWithHiveMetastoreCatalogSuite
