@@ -37,6 +37,12 @@ private class HistoryServerMemoryManager(
   private[history] val currentUsage = new AtomicLong(0L)
   private[history] val active = new HashMap[(String, Option[String]), Long]()
 
+  /** Bytes currently used by in-memory application stores. */
+  def currentUsageBytes: Long = currentUsage.get()
+
+  /** Configured maximum in-memory store usage in bytes. */
+  def maxUsageBytes: Long = maxUsage
+
   def initialize(): Unit = {
     logInfo("Initialized memory manager: " +
       s"current usage = ${Utils.bytesToString(currentUsage.get())}, " +

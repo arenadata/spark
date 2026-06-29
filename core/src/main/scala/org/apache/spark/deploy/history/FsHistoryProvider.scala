@@ -44,6 +44,7 @@ import org.apache.spark.internal.config.History._
 import org.apache.spark.internal.config.Status._
 import org.apache.spark.internal.config.Tests.IS_TESTING
 import org.apache.spark.internal.config.UI._
+import org.apache.spark.metrics.source.{Source => MetricSource}
 import org.apache.spark.scheduler._
 import org.apache.spark.scheduler.ReplayListenerBus._
 import org.apache.spark.status._
@@ -350,6 +351,10 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
   override def getEventLogsUnderProcess(): Int = pendingReplayTasksCount.get()
 
   override def getLastUpdatedTime(): Long = lastScanTime.get()
+
+  override def getMetricsSources(): Seq[MetricSource] = {
+    Seq(new FsHistoryProviderSource(diskManager, Option(memoryManager)))
+  }
 
   /**
    * Split a comma separated String, filter out any empty items, and return a Sequence of strings

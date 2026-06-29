@@ -23,6 +23,7 @@ import java.util.zip.ZipOutputStream
 import scala.xml.Node
 
 import org.apache.spark.SparkException
+import org.apache.spark.metrics.source.Source
 import org.apache.spark.status.api.v1.ApplicationInfo
 import org.apache.spark.ui.SparkUI
 
@@ -91,6 +92,15 @@ private[history] abstract class ApplicationHistoryProvider {
   def getLastUpdatedTime(): Long = {
     0
   }
+
+  /**
+   * Returns provider-specific metric sources to register with the History Server's metrics system,
+   * allowing a provider to expose its own metrics (e.g. disk and memory store usage). Defaults to
+   * empty for providers that do not expose any.
+   *
+   * @return metric sources to register, or an empty sequence
+   */
+  def getMetricsSources(): Seq[Source] = Seq.empty
 
   /**
    * Returns a list of applications available for the history server to show.

@@ -281,4 +281,7 @@ private[spark] object MetricsSystemInstances {
 
   // The Spark cluster scheduler when running on Mesos
   val MESOS_CLUSTER = "mesos_cluster"
+
+  // The Spark History Server process
+  val APPLICATION_HISTORY = "applicationHistory"
 }
