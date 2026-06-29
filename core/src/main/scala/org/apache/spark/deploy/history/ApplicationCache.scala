@@ -286,7 +286,7 @@ private[history] class CacheMetrics(prefix: String) extends Source {
   val loadCount = new Counter()
   val loadTimer = new Timer()
 
-  /** all the counters: for registration and string conversion. */
+  /** all the counters: for string conversion. */
   private val counters = Seq(
     ("lookup.count", lookupCount),
     ("lookup.failure.count", lookupFailureCount),
@@ -299,6 +299,16 @@ private[history] class CacheMetrics(prefix: String) extends Source {
   override val sourceName = "ApplicationCache"
 
   override val metricRegistry: MetricRegistry = new MetricRegistry
+
+  // Register the counters and the load timer so they are exposed through the metrics system
+  // (e.g. the Prometheus servlet) when a sink scrapes this source's registry. Plain-noun names are
+  // used here so the metrics system's own ".count"/"Count" suffix is not duplicated; the counters
+  // Seq above keeps its original names so toString output is unchanged.
+  metricRegistry.register(MetricRegistry.name("lookups"), lookupCount)
+  metricRegistry.register(MetricRegistry.name("lookupFailures"), lookupFailureCount)
+  metricRegistry.register(MetricRegistry.name("evictions"), evictionCount)
+  metricRegistry.register(MetricRegistry.name("loads"), loadCount)
+  metricRegistry.register(MetricRegistry.name("loadTime"), loadTimer)
 
   override def toString: String = {
     val sb = new StringBuilder()
