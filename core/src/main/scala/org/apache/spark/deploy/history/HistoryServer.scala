@@ -180,6 +180,7 @@ class HistoryServer(
     metricsSystem.foreach { ms =>
       ms.registerSource(cacheMetrics)
       ms.registerSource(new HistoryServerSource(this))
+      provider.getMetricsSources().foreach(ms.registerSource)
       ms.start()
       ms.getServletHandlers.foreach(attachHandler)
     }
