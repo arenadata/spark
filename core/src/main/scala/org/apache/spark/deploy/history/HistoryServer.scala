@@ -32,6 +32,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.internal.LogKeys._
 import org.apache.spark.internal.config.History
 import org.apache.spark.internal.config.UI._
+import org.apache.spark.metrics.{MetricsSystem, MetricsSystemInstances}
 import org.apache.spark.status.api.v1.{ApiRootResource, ApplicationInfo, UIRoot}
 import org.apache.spark.ui.{SparkUI, UIUtils, WebUI}
 import org.apache.spark.util.{ShutdownHookManager, SystemClock, Utils}
@@ -73,6 +74,17 @@ class HistoryServer(
 
   // and its metrics, for testing as well as monitoring
   val cacheMetrics = appCache.metrics
+
+  // Optional metrics system for the History Server itself. When enabled, this exposes the
+  // application cache metrics and high level server gauges to the configured sinks (e.g. the
+  // Prometheus servlet), independently from the per-application SparkUIs reconstructed from
+  // event logs.
+  private val metricsSystem: Option[MetricsSystem] =
+    if (conf.get(History.METRICS_ENABLED)) {
+      Some(MetricsSystem.createMetricsSystem(MetricsSystemInstances.APPLICATION_HISTORY, conf))
+    } else {
+      None
+    }
 
   private val loaderServlet = new HttpServlet {
     protected override def doGet(req: HttpServletRequest, res: HttpServletResponse): Unit = {
@@ -161,6 +173,17 @@ class HistoryServer(
     contextHandler.setContextPath(HistoryServer.UI_PATH_PREFIX)
     contextHandler.addServlet(new ServletHolder(loaderServlet), "/*")
     attachHandler(contextHandler)
+
+    // Start the metrics system and expose its servlet handlers (e.g. the Prometheus servlet) on
+    // the History Server's web UI. Handlers are buffered here and bound together with the UI in
+    // bind(); getServletHandlers requires the metrics system to be running first.
+    metricsSystem.foreach { ms =>
+      ms.registerSource(cacheMetrics)
+      ms.registerSource(new HistoryServerSource(this))
+      provider.getMetricsSources().foreach(ms.registerSource)
+      ms.start()
+      ms.getServletHandlers.foreach(attachHandler)
+    }
   }
 
   /** Bind to the HTTP server behind this web interface. */
@@ -171,6 +194,10 @@ class HistoryServer(
   /** Stop the server and close the file system. */
   override def stop(): Unit = {
     super.stop()
+    metricsSystem.foreach { ms =>
+      ms.report()
+      ms.stop()
+    }
     provider.stop()
   }
 

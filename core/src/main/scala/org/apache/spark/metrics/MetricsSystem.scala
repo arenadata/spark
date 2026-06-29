@@ -283,4 +283,7 @@ private[spark] object MetricsSystemInstances {
 
   // The Spark ApplicationMaster when running on YARN
   val APPLICATION_MASTER = "applicationMaster"
+
+  // The Spark History Server process
+  val APPLICATION_HISTORY = "applicationHistory"
 }

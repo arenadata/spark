@@ -1138,6 +1138,7 @@ set of sinks to which metrics are reported. The following instances are currentl
 * `driver`: The Spark driver process (the process in which your SparkContext is created).
 * `shuffleService`: The Spark shuffle service.
 * `applicationMaster`: The Spark ApplicationMaster when running on YARN.
+* `applicationHistory`: The Spark History Server process.
 
 Each instance can report to zero or more _sinks_. Sinks are contained in the
 `org.apache.spark.metrics.sink` package:
@@ -1191,6 +1192,12 @@ The Prometheus Servlet mirrors the JSON data exposed by the <code>Metrics Servle
     <td>4040</td>
     <td><code>/api/v1/applications/{id}/executors/</code></td>
     <td><code>/metrics/executors/prometheus/</code></td>
+  </tr>
+  <tr>
+    <td>History Server</td>
+    <td>18080</td>
+    <td><code>/metrics/applicationHistory/json/</code></td>
+    <td><code>/metrics/applicationHistory/prometheus/</code></td>
   </tr>
 </table>
 
@@ -1572,6 +1579,34 @@ Note: applies to the shuffle service
 - ignoredBlockBytes - size of the pushed block data that was transferred to ESS, but ignored.
   The pushed block data are considered as ignored when: 1. it was received after the shuffle
   was finalized; 2. when a push request is for a duplicate block; 3. ESS was unable to write the block.
+
+### Component instance = applicationHistory
+Note: applies to the Spark History Server. The metrics system is disabled by default and can be
+enabled by setting <code>spark.history.metrics.enabled</code> to <code>true</code>.
+
+- namespace=history
+  - application.count - number of applications currently known to the history provider
+  - eventLog.underProcessCount - number of event logs still being replayed / pending processing
+  - lastUpdated - epoch time (in milliseconds) of the last time the provider scanned the log directory
+  - diskStore.usedBytes - bytes currently used by application stores on disk
+    (only when a disk-based KVStore is configured via `spark.history.store.path`)
+  - diskStore.committedBytes - bytes committed for application stores on disk (same condition as above)
+  - diskStore.maxBytes - configured maximum disk usage in bytes (`spark.history.store.maxDiskUsage`)
+  - memoryStore.usedBytes - bytes currently used by in-memory application stores
+    (only when the hybrid store is enabled)
+  - memoryStore.maxBytes - configured maximum in-memory store usage in bytes
+    (`spark.history.store.hybridStore.maxMemoryUsage`)
+- namespace=ApplicationCache
+  - lookups.count - number of application UI lookups
+  - lookupFailures.count - number of failed application UI lookups
+  - evictions.count - number of application UIs evicted from the cache
+  - loads.count - number of application UIs loaded into the cache
+  - loadTime - timer for the time taken to load an application UI
+- namespace=jvm
+  - JVM heap / non-heap memory, GC and buffer-pool metrics for the History Server process
+    (e.g. heap.used, heap.max, total.used). Opt-in, exactly like the other Spark instances, by
+    configuring the standard JvmSource:
+    <code>applicationHistory.source.jvm.class=org.apache.spark.metrics.source.JvmSource</code>.
 
 # Advanced Instrumentation
 

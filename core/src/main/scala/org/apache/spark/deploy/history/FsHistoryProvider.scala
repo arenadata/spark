@@ -46,6 +46,7 @@ import org.apache.spark.internal.config.Status._
 import org.apache.spark.internal.config.Tests.IS_TESTING
 import org.apache.spark.internal.config.UI
 import org.apache.spark.internal.config.UI._
+import org.apache.spark.metrics.source.{Source => MetricSource}
 import org.apache.spark.scheduler._
 import org.apache.spark.scheduler.ReplayListenerBus._
 import org.apache.spark.status._
@@ -442,6 +443,10 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
   override def getEventLogsUnderProcess(): Int = pendingReplayTasksCount.get()
 
   override def getLastUpdatedTime(): Long = lastScanTime.get()
+
+  override def getMetricsSources(): Seq[MetricSource] = {
+    Seq(new FsHistoryProviderSource(diskManager, Option(memoryManager)))
+  }
 
   override def getAppUI(appId: String, attemptId: Option[String]): Option[LoadedAppUI] = {
     val logPath = RollingEventLogFilesWriter.EVENT_LOG_DIR_NAME_PREFIX +

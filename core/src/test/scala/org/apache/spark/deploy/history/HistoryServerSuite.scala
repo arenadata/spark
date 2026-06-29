@@ -805,6 +805,52 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
     assert(actualContentType === expectedContentType)
   }
 
+  test("expose History Server metrics through the Prometheus servlet") {
+    stop()
+    init(
+      History.METRICS_ENABLED.key -> "true",
+      "spark.metrics.conf.applicationHistory.sink.prometheusServlet.class" ->
+        "org.apache.spark.metrics.sink.PrometheusServlet",
+      "spark.metrics.conf.applicationHistory.sink.prometheusServlet.path" ->
+        "/metrics/applicationHistory/prometheus",
+      // JVM heap / GC metrics for the History Server process are opt-in via the standard
+      // metrics-system source config, exactly like master/worker/driver/executor.
+      "spark.metrics.conf.applicationHistory.source.jvm.class" ->
+        "org.apache.spark.metrics.source.JvmSource")
+    val port = server.boundPort
+    val url = new URI(s"http://$localhost:$port/metrics/applicationHistory/prometheus").toURL
+    val (code, content, _) = HistoryServerSuite.getContentAndCode(url)
+    assert(code === 200)
+    val body = content.get
+    // High level server gauges from HistoryServerSource.
+    assert(body.contains("metrics_history_application_count"))
+    assert(body.contains("metrics_history_eventLog_underProcessCount"))
+    assert(body.contains("metrics_history_lastUpdated"))
+    // Application cache metrics (counters named as plain nouns, no doubled ".count").
+    assert(body.contains("metrics_ApplicationCache_lookups_Count"))
+    // Byte-valued disk store gauges from FsHistoryProviderSource (a local store dir is configured).
+    assert(body.contains("metrics_history_diskStore_usedBytes"))
+    assert(body.contains("metrics_history_diskStore_maxBytes"))
+    // JVM heap / GC metrics for the History Server process, from the config-enabled JvmSource.
+    assert(body.contains("metrics_jvm_heap_used"))
+  }
+
+  test("History Server metrics system can be disabled") {
+    stop()
+    init(
+      History.METRICS_ENABLED.key -> "false",
+      "spark.metrics.conf.applicationHistory.sink.prometheusServlet.class" ->
+        "org.apache.spark.metrics.sink.PrometheusServlet",
+      "spark.metrics.conf.applicationHistory.sink.prometheusServlet.path" ->
+        "/metrics/applicationHistory/prometheus")
+    val port = server.boundPort
+    val url = new URI(s"http://$localhost:$port/metrics/applicationHistory/prometheus").toURL
+    // With the metrics system disabled the Prometheus servlet is not attached, so the request
+    // falls through to the History Server's catch-all page instead of serving metrics text.
+    val (_, content, _) = HistoryServerSuite.getContentAndCode(url)
+    assert(!content.getOrElse("").contains("metrics_history_application_count"))
+  }
+
   test("Redirect to the root page when accessed to /history/") {
     val port = server.boundPort
     val url = new URI(s"http://$localhost:$port/history/").toURL

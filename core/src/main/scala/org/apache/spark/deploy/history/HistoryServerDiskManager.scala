@@ -69,6 +69,15 @@ private class HistoryServerDiskManager(
   private val committedUsage = new AtomicLong(0L)
   private val active = new HashMap[(String, Option[String]), Long]()
 
+  /** Bytes currently used by application stores on disk. */
+  def currentUsageBytes: Long = currentUsage.get()
+
+  /** Bytes committed (tracked in the listing) for application stores on disk. */
+  def committedUsageBytes: Long = committedUsage.get()
+
+  /** Configured maximum disk usage in bytes (spark.history.store.maxDiskUsage). */
+  def maxUsageBytes: Long = maxUsage
+
   def initialize(): Unit = {
     updateUsage(sizeOf(appStoreDir), committed = true)
 

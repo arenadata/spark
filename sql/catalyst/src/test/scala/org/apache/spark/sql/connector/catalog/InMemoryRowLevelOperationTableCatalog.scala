@@ -92,8 +92,7 @@ class InMemoryRowLevelOperationTableCatalog
     }
 
     val columnsWithIds = InMemoryBaseTable.assignMissingIds(
-      oldColumns = table.columns(),
-      newColumns = CatalogV2Util.structTypeToV2Columns(schema))
+      CatalogV2Util.structTypeToV2Columns(schema))
 
     val newTable = InMemoryRowLevelOperationTable.withColumns(
       name = table.name,
