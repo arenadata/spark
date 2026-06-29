@@ -18,7 +18,7 @@
 package org.apache.spark.sql.jdbc
 
 import java.math.BigDecimal
-import java.sql.{Date, DriverManager, Timestamp}
+import java.sql.{Connection, Date, DriverManager, ResultSet, Statement, Timestamp}
 import java.time.{Instant, LocalDate, LocalDateTime}
 import java.time.format.DateTimeFormatter
 import java.util.{Calendar, GregorianCalendar, Properties, TimeZone}
@@ -26,6 +26,7 @@ import java.util.{Calendar, GregorianCalendar, Properties, TimeZone}
 import scala.jdk.CollectionConverters._
 import scala.util.Random
 
+import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito._
 
@@ -35,7 +36,8 @@ import org.apache.spark.sql.catalyst.{analysis, TableIdentifier}
 import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
 import org.apache.spark.sql.catalyst.plans.logical.ShowCreateTable
 import org.apache.spark.sql.catalyst.util.{CaseInsensitiveMap, CharVarcharUtils, DateTimeTestUtils}
-import org.apache.spark.sql.connector.expressions.{Expression => V2Expression, FieldReference}
+import org.apache.spark.sql.connector.catalog.Identifier
+import org.apache.spark.sql.connector.expressions.{Expression => V2Expression, FieldReference, GeneralScalarExpression, LiteralValue}
 import org.apache.spark.sql.connector.expressions.filter.{AlwaysFalse, AlwaysTrue, Predicate}
 import org.apache.spark.sql.execution.{DataSourceScanExec, ExtendedMode, ProjectExec}
 import org.apache.spark.sql.execution.command.{ExplainCommand, ShowCreateTableCommand}
@@ -837,6 +839,31 @@ class JDBCSuite extends SharedSparkSession {
     assert(JdbcDialects.get("test.invalid") === NoopDialect)
   }
 
+  test("SPARK-57447: (H2|MySQL|Postgres)Dialect escape a single quote in indexExists") {
+    // indexExists builds a lookup query with the index name as a SQL string literal, so a single
+    // quote in the name must be escaped to keep the WHERE clause well-formed.
+    Seq(
+      "jdbc:h2:mem:testdb0" -> "INDEX_NAME = 'i''1'",
+      "jdbc:mysql://127.0.0.1/db" -> "key_name = 'i''1'",
+      "jdbc:postgresql://127.0.0.1/db" -> "indexname = 'i''1'"
+    ).foreach { case (jdbcUrl, expectedClause) =>
+      val dialect = JdbcDialects.get(jdbcUrl)
+      val conn = mock(classOf[Connection])
+      val stmt = mock(classOf[Statement])
+      val rs = mock(classOf[ResultSet])
+      when(conn.createStatement()).thenReturn(stmt)
+      when(stmt.executeQuery(anyString())).thenReturn(rs)
+
+      val options = new JDBCOptions(jdbcUrl, "test.people", Map.empty[String, String])
+      dialect.indexExists(conn, "i'1", Identifier.of(Array("test"), "people"), options)
+
+      val sqlCaptor = ArgumentCaptor.forClass(classOf[String])
+      verify(stmt).executeQuery(sqlCaptor.capture())
+      assert(sqlCaptor.getValue.contains(expectedClause),
+        s"Unexpected lookup SQL for $jdbcUrl: ${sqlCaptor.getValue}")
+    }
+  }
+
   test("quote column names by jdbc dialect") {
     val mySQLDialect = JdbcDialects.get("jdbc:mysql://127.0.0.1/db")
     val postgresDialect = JdbcDialects.get("jdbc:postgresql://127.0.0.1/db")
@@ -941,6 +968,19 @@ class JDBCSuite extends SharedSparkSession {
     // wildcards) before the LIKE engine, matching the default dialect's semantics.
     // `c` LIKE 'a\\%b\\_%' ESCAPE '\\'
     assert(mySQLSQL(StringStartsWith("c", "a%b_")) === """`c` LIKE 'a\\%b\\_%' ESCAPE '\\'""")
+  }
+
+  test("SPARK-57446: escape single quotes in JDBC comment queries") {
+    val defaultDialect = JdbcDialects.get("jdbc:")
+    assert(defaultDialect.getTableCommentQuery("t", "a'b") ===
+      "COMMENT ON TABLE t IS 'a''b'")
+    assert(defaultDialect.getSchemaCommentQuery("s", "a'b") ===
+      """COMMENT ON SCHEMA "s" IS 'a''b'""")
+
+    // MySQL overrides getTableCommentQuery with its own ALTER TABLE syntax.
+    val mySQLDialect = JdbcDialects.get("jdbc:mysql://127.0.0.1/db")
+    assert(mySQLDialect.getTableCommentQuery("t", "a'b") ===
+      "ALTER TABLE t COMMENT = 'a''b'")
   }
 
   test("Dialect unregister") {
@@ -1461,6 +1501,50 @@ class JDBCSuite extends SharedSparkSession {
       assert(getJdbcType(oracleDialect, TimestampType) == "TIMESTAMP")
     }
     assert(getJdbcType(oracleDialect, TimestampNTZType) == "TIMESTAMP")
+  }
+
+  test("Oracle TRUNC pushdown should map Spark format strings to Oracle format") {
+    val oracleDialect = JdbcDialects.get("jdbc:oracle://127.0.0.1/db")
+    val dateRef = FieldReference("d")
+
+    // LiteralValue for StringType must use UTF8String (Spark's internal string type)
+    // to match what V2ExpressionBuilder produces in the real pushdown path.
+    import org.apache.spark.unsafe.types.UTF8String
+    def truncExpr(fmt: String): GeneralScalarExpression = new GeneralScalarExpression("TRUNC",
+      Array[V2Expression](dateRef, LiteralValue(UTF8String.fromString(fmt), StringType)))
+
+    val monthSql = oracleDialect.compileExpression(truncExpr("MONTH")).get
+    assert(monthSql.contains("'MM'"),
+      s"trunc(d, 'MONTH') should produce Oracle 'MM', got: $monthSql")
+    assert(!monthSql.contains("'IW'"),
+      s"trunc(d, 'MONTH') should NOT produce 'IW', got: $monthSql")
+
+    val weekSql = oracleDialect.compileExpression(truncExpr("WEEK")).get
+    assert(weekSql.contains("'IW'"),
+      s"trunc(d, 'WEEK') should produce Oracle 'IW', got: $weekSql")
+
+    val yearSql = oracleDialect.compileExpression(truncExpr("YEAR")).get
+    assert(yearSql.contains("'YYYY'"),
+      s"trunc(d, 'YEAR') should produce Oracle 'YYYY', got: $yearSql")
+
+    val quarterSql = oracleDialect.compileExpression(truncExpr("QUARTER")).get
+    assert(quarterSql.contains("'Q'"),
+      s"trunc(d, 'QUARTER') should produce Oracle 'Q', got: $quarterSql")
+
+    // Case-insensitive: lowercase formats must also map correctly
+    val weekLowerSql = oracleDialect.compileExpression(truncExpr("week")).get
+    assert(weekLowerSql.contains("'IW'"),
+      s"trunc(d, 'week') (lowercase) should produce Oracle 'IW', got: $weekLowerSql")
+
+    // Unmapped formats should NOT be pushed down (compileExpression returns None)
+    assert(oracleDialect.compileExpression(truncExpr("DAY")).isEmpty,
+      "Unmapped format 'DAY' should not be pushed down (compileExpression should return None)")
+
+    // Alias formats (MM, MON, YYYY, YY) should also map correctly
+    val mmSql = oracleDialect.compileExpression(truncExpr("MM")).get
+    assert(mmSql.contains("'MM'"), s"trunc(d, 'MM') should produce Oracle 'MM', got: $mmSql")
+    val yySql = oracleDialect.compileExpression(truncExpr("YY")).get
+    assert(yySql.contains("'YYYY'"), s"trunc(d, 'YY') should produce Oracle 'YYYY', got: $yySql")
   }
 
   private def assertEmptyQuery(sqlString: String): Unit = {
@@ -2059,7 +2143,8 @@ class JDBCSuite extends SharedSparkSession {
         spark.read.format("jdbc").options(opts).load()
       },
       condition = "FAILED_JDBC.CONNECTION",
-      parameters = Map("url" -> url)
+      // getRedactUrl() keeps only the "jdbc:<subprotocol>:" prefix and redacts the rest.
+      parameters = Map("url" -> s"jdbc:mysql:${Utils.REDACTION_REPLACEMENT_TEXT}")
     )
   }
 
@@ -2412,7 +2497,8 @@ class JDBCSuite extends SharedSparkSession {
           }
         },
         condition = "FAILED_JDBC.CONNECTION",
-        parameters = Map("url" -> url)
+        // getRedactUrl() keeps only the "jdbc:<subprotocol>:" prefix and redacts the rest.
+        parameters = Map("url" -> s"$connectionUrl:${Utils.REDACTION_REPLACEMENT_TEXT}")
       )
     }
   }
