@@ -244,6 +244,14 @@ private[spark] object History {
     .bytesConf(ByteUnit.BYTE)
     .createWithDefaultString("2g")
 
+  val METRICS_ENABLED = ConfigBuilder("spark.history.metrics.enabled")
+    .doc("Whether to start a metrics system for the History Server, exposing the application " +
+      "cache metrics and high level server gauges to the configured sinks (e.g. the Prometheus " +
+      "servlet). Disabled by default so existing deployments are unaffected unless opted in.")
+    .version("3.5.4")
+    .booleanConf
+    .createWithDefault(false)
+
   object HybridStoreDiskBackend extends Enumeration {
     val LEVELDB, ROCKSDB = Value
   }
