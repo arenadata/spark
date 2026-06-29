@@ -767,6 +767,9 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
     assert(body.contains("metrics_history_lastUpdated"))
     // Application cache metrics (counters named as plain nouns, no doubled ".count").
     assert(body.contains("metrics_ApplicationCache_lookups_Count"))
+    // Byte-valued disk store gauges from FsHistoryProviderSource (a local store dir is configured).
+    assert(body.contains("metrics_history_diskStore_usedBytes"))
+    assert(body.contains("metrics_history_diskStore_maxBytes"))
     // JVM heap / GC metrics for the History Server process, from the config-enabled JvmSource.
     assert(body.contains("metrics_jvm_heap_used"))
   }

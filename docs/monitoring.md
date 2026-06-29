@@ -1458,6 +1458,14 @@ enabled by setting <code>spark.history.metrics.enabled</code> to <code>true</cod
   - application.count - number of applications currently known to the history provider
   - eventLog.underProcessCount - number of event logs still being replayed / pending processing
   - lastUpdated - epoch time (in milliseconds) of the last time the provider scanned the log directory
+  - diskStore.usedBytes - bytes currently used by application stores on disk
+    (only when a disk-based KVStore is configured via `spark.history.store.path`)
+  - diskStore.committedBytes - bytes committed for application stores on disk (same condition as above)
+  - diskStore.maxBytes - configured maximum disk usage in bytes (`spark.history.store.maxDiskUsage`)
+  - memoryStore.usedBytes - bytes currently used by in-memory application stores
+    (only when the hybrid store is enabled)
+  - memoryStore.maxBytes - configured maximum in-memory store usage in bytes
+    (`spark.history.store.hybridStore.maxMemoryUsage`)
 - namespace=ApplicationCache
   - lookups.count - number of application UI lookups
   - lookupFailures.count - number of failed application UI lookups
