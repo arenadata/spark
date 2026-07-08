@@ -408,30 +408,32 @@ control who has the respective privileges via YARN interfaces.
 
 ### Built-in authentication filters
 
-Apache Spark ships no Web UI authentication filter, but Hadoop's
-`org.apache.hadoop.security.authentication.server.AuthenticationFilter` is a `javax.servlet.Filter`
-that plugs directly into `spark.ui.filters` and protects the **whole** Web UI with SPNEGO/Kerberos
-(`type=kerberos`) or pseudo (`type=simple`) authentication. Filter parameters are passed as
+`org.apache.spark.filter.AuthenticationFilter` protects the **whole** Web UI with SPNEGO/Kerberos
+(`type=kerberos`) or pseudo (`type=simple`) authentication. On Spark 3.5 it is a thin wrapper around
+Hadoop's `org.apache.hadoop.security.authentication.server.AuthenticationFilter` (a real
+`javax.servlet.Filter`), exposed under a stable Spark class name so the same configuration works on
+Spark 3.5 and Spark 4. Filter parameters are passed as
 `spark.<fully-qualified-filter-class>.param.<name>` (the convention Spark uses for any UI filter):
 
 ```
-spark.ui.filters=org.apache.hadoop.security.authentication.server.AuthenticationFilter
-spark.org.apache.hadoop.security.authentication.server.AuthenticationFilter.param.type=kerberos
-spark.org.apache.hadoop.security.authentication.server.AuthenticationFilter.param.kerberos.principal=HTTP/_HOST@REALM
-spark.org.apache.hadoop.security.authentication.server.AuthenticationFilter.param.kerberos.keytab=/etc/security/keytabs/spnego.keytab
+spark.ui.filters=org.apache.spark.filter.AuthenticationFilter
+spark.org.apache.spark.filter.AuthenticationFilter.param.type=kerberos
+spark.org.apache.spark.filter.AuthenticationFilter.param.kerberos.principal=HTTP/_HOST@REALM
+spark.org.apache.spark.filter.AuthenticationFilter.param.kerberos.keytab=/etc/security/keytabs/spnego.keytab
 ```
 
-This distribution additionally ships `org.apache.spark.filter.MetricsAuthFilter` in `spark-core`
-(no extra jar required). Both authenticate only - pair them with UI TLS (`spark.ssl.ui.enabled=true`,
-or `spark.ssl.historyServer.*` on the History Server) so credentials are not sent in the clear.
+This distribution additionally ships `org.apache.spark.filter.MetricsAuthFilter` (also in
+`spark-core`, no extra jar required). Both authenticate only - pair them with UI TLS
+(`spark.ssl.ui.enabled=true`, or `spark.ssl.historyServer.*` on the History Server) so credentials
+are not sent in the clear.
 
 `MetricsAuthFilter` applies **different** policies to the Prometheus metrics
 endpoints (`/metrics/*`) and to the rest of the UI - something plain configuration cannot express,
 because `spark.ui.filters`, the ACLs and the TLS connector are all UI-wide. It bearer-guards (or, if
 no `token` is set, leaves open) `/metrics/*` for a Prometheus/vmagent scraper that cannot perform
-Kerberos, while optionally delegating every other path to an embedded Hadoop `AuthenticationFilter`
-for SPNEGO. Register **only** this filter (it embeds the SPNEGO delegate; do not also list the Hadoop
-filter, which would challenge `/metrics/*` too):
+Kerberos, while optionally delegating every other path to an embedded `AuthenticationFilter` for
+SPNEGO. Register **only** this filter (it embeds the SPNEGO delegate; do not also list
+`AuthenticationFilter`, which would challenge `/metrics/*` too):
 
 ```
 spark.ui.filters=org.apache.spark.filter.MetricsAuthFilter

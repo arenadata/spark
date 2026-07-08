@@ -46,12 +46,11 @@ import javax.servlet.http.HttpServletResponse;
  *       "no token" mode) - useful when the scraper cannot present credentials but
  *       the rest of the UI still must be protected.</li>
  *   <li><b>UI auth via SPNEGO/pseudo</b> - when the {@code spnego.type} param is
- *       present, every NON-metrics path is delegated to Hadoop's
- *       {@code org.apache.hadoop.security.authentication.server.AuthenticationFilter}
- *       ({@code type=kerberos} for SPNEGO, {@code simple} for pseudo) - a real
- *       {@code javax.servlet.Filter} on this Spark 3.5 (javax) build. The metrics
- *       path NEVER hits SPNEGO, so vmagent/Prometheus (which cannot do Kerberos)
- *       can still scrape.</li>
+ *       present, every NON-metrics path is delegated to {@link AuthenticationFilter}
+ *       ({@code type=kerberos} for SPNEGO, {@code simple} for pseudo), the thin
+ *       wrapper around Hadoop's javax AuthenticationFilter. The metrics path NEVER
+ *       hits SPNEGO, so vmagent/Prometheus (which cannot do Kerberos) can still
+ *       scrape.</li>
  *   <li><b>Fall-through</b> - with neither param set for a given path, the
  *       request passes to Spark's own filters/ACLs unchanged.</li>
  * </ol>
@@ -64,10 +63,9 @@ import javax.servlet.http.HttpServletResponse;
  * {@code AuthenticationFilter} as well.
  *
  * <p>If you do NOT need path-scoping (i.e. you are happy protecting the WHOLE UI,
- * metrics included), skip this class and list Hadoop's
- * {@code org.apache.hadoop.security.authentication.server.AuthenticationFilter}
- * (SPNEGO) in {@code spark.ui.filters} directly - on Spark 3.5 it is a real
- * {@code javax.servlet.Filter} and needs no wrapper.
+ * metrics included), skip this class and list
+ * {@code org.apache.spark.filter.AuthenticationFilter} (SPNEGO) in
+ * {@code spark.ui.filters} directly.
  *
  * <h3>Modes (combinations of the two params)</h3>
  * <pre>
@@ -88,8 +86,10 @@ import javax.servlet.http.HttpServletResponse;
  * --conf spark.org.apache.spark.filter.MetricsAuthFilter.param.token=&lt;shared-secret&gt;
  * # optional SPNEGO for the rest of the UI (params carry a 'spnego.' prefix):
  * --conf spark.org.apache.spark.filter.MetricsAuthFilter.param.spnego.type=kerberos
- * --conf spark.org.apache.spark.filter.MetricsAuthFilter.param.spnego.kerberos.principal=HTTP/_HOST@REALM
- * --conf spark.org.apache.spark.filter.MetricsAuthFilter.param.spnego.kerberos.keytab=/etc/keytabs/spnego.keytab
+ * --conf spark.org.apache.spark.filter.MetricsAuthFilter.param.spnego.kerberos.\
+ *   principal=HTTP/_HOST@REALM
+ * --conf spark.org.apache.spark.filter.MetricsAuthFilter.param.spnego.kerberos.\
+ *   keytab=/etc/keytabs/spnego.keytab
  * # confidentiality: also enable TLS so the token is not sent in cleartext
  * --conf spark.ssl.ui.enabled=true
  * </pre>
@@ -140,26 +140,13 @@ public class MetricsAuthFilter implements Filter {
   }
 
   /**
-   * The filter that non-metrics UI paths are delegated to. On this
-   * (Spark 3.5.x, javax.servlet) build it is Hadoop's own
-   * {@code org.apache.hadoop.security.authentication.server.AuthenticationFilter},
-   * a real {@code javax.servlet.Filter}. It is loaded reflectively so this class
-   * compiles against the shaded {@code hadoop-client-api} on the build classpath
-   * (whose AuthenticationFilter implements a relocated servlet API); at runtime
-   * the unshaded {@code hadoop-auth} supplies the concrete filter. Spark 4 needs a
-   * jakarta wrapper ({@code org.apache.spark.filter.AuthenticationFilter}) here
-   * because its UI is jakarta.servlet; Spark 3.5 does not.
-   * Package-private and overridable so tests can inject a stub without Kerberos.
+   * The filter that non-metrics UI paths are delegated to: {@link AuthenticationFilter},
+   * the thin wrapper that exposes Hadoop's javax AuthenticationFilter under a stable
+   * Spark class name (same class used on Spark 4). Package-private and overridable so
+   * tests can inject a stub without Kerberos.
    */
   Filter createUiDelegate() {
-    try {
-      return (Filter) Class.forName(
-          "org.apache.hadoop.security.authentication.server.AuthenticationFilter")
-          .getDeclaredConstructor().newInstance();
-    } catch (ReflectiveOperationException e) {
-      throw new IllegalStateException(
-          "Hadoop AuthenticationFilter is not on the classpath", e);
-    }
+    return new AuthenticationFilter();
   }
 
   @Override
