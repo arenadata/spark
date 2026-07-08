@@ -154,7 +154,7 @@ execute_command() {
         echo "full log in $log"
       fi
   else
-      "$@"
+      exec "$@"
   fi
 }
 
