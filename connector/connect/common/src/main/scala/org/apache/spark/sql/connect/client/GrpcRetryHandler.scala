@@ -189,6 +189,8 @@ private[sql] object GrpcRetryHandler extends Logging {
       try {
         return fn
       } catch {
+        case _: RetryException =>
+          currentRetryNum += 1
         case NonFatal(e) if retryPolicy.canRetry(e) && currentRetryNum < retryPolicy.maxRetries =>
           currentRetryNum += 1
           exceptionList = e +: exceptionList
