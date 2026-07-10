@@ -189,8 +189,6 @@ private[sql] object GrpcRetryHandler extends Logging {
       try {
         return fn
       } catch {
-        case _: RetryException =>
-          currentRetryNum += 1
         case NonFatal(e) if retryPolicy.canRetry(e) && currentRetryNum < retryPolicy.maxRetries =>
           currentRetryNum += 1
           exceptionList = e +: exceptionList
@@ -221,6 +219,7 @@ private[sql] object GrpcRetryHandler extends Logging {
    */
   private[client] def retryException(e: Throwable): Boolean = {
     e match {
+      case _: RetryException => true
       case e: StatusRuntimeException =>
         val statusCode: Status.Code = e.getStatus.getCode
 
