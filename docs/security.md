@@ -434,6 +434,13 @@ The following options control the authentication of Web UIs:
     <br /><em>Note:</em> This implementation supports only Unix/Linux-based environments.
     Windows environment is currently <b>not</b> supported. However, a new platform/protocol can
     be supported by implementing the trait mentioned above.
+
+    <br />Alternatively, <code>org.apache.spark.security.HadoopGroupsMappingProvider</code>
+    resolves groups through the Hadoop group mapping service configured by
+    <code>hadoop.security.group.mapping</code> (including composite or LDAP based mappings
+    configured via <code>hadoop.security.group.mapping.providers</code>), so that Spark ACLs
+    use the same group source as HDFS and YARN. The Hadoop properties can be set or overridden
+    with <code>spark.hadoop.*</code> entries in the Spark configuration.
   </td>
   <td>2.0.0</td>
 </tr>
