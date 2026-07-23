@@ -219,6 +219,7 @@ private[sql] object GrpcRetryHandler extends Logging {
    */
   private[client] def retryException(e: Throwable): Boolean = {
     e match {
+      case _: RetryException => true
       case e: StatusRuntimeException =>
         val statusCode: Status.Code = e.getStatus.getCode
 
