@@ -251,6 +251,21 @@
               </arguments>
             </configuration>
           </execution>
+          <execution>
+            <!-- SPARK-49282: connect SparkSession needs classic sql/core types (ExperimentalMethods, SharedState, ...) -->
+            <id>copy-connect-client-classic-sql-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>cp</executable>
+              <arguments>
+                <argument>${basedir}/../sql/core/target/spark-sql_${scala.binary.version}-${project.version}.jar</argument>
+                <argument>${basedir}/target/scala-${scala.binary.version}/jars/connect-repl</argument>
+              </arguments>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
     </plugins>
