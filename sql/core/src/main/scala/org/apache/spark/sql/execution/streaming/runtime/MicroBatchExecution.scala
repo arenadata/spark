@@ -46,7 +46,7 @@ import org.apache.spark.sql.execution.{SparkPlan, SQLExecution}
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, RealTimeStreamScanExec, StreamingDataSourceV2Relation, StreamingDataSourceV2ScanRelation, StreamWriterCommitProgress, WriteToDataSourceV2Exec}
 import org.apache.spark.sql.execution.streaming.{AvailableNowTrigger, Offset, OneTimeTrigger, ProcessingTimeTrigger, RealTimeTrigger, Sink, Source, StreamingQueryPlanTraverseHelper}
-import org.apache.spark.sql.execution.streaming.checkpointing.{CheckpointFileManager, CommitMetadata, OffsetSeqBase, OffsetSeqLog, OffsetSeqMetadata, OffsetSeqMetadataV2}
+import org.apache.spark.sql.execution.streaming.checkpointing.{CheckpointFileManager, CommitLog, CommitMetadataV3, OffsetSeqBase, OffsetSeqLog, OffsetSeqMetadata, OffsetSeqMetadataV2, SinkMetadataInfo}
 import org.apache.spark.sql.execution.streaming.operators.stateful.{StatefulOperatorStateInfo, StatefulOpStateStoreCheckpointInfo, StateStoreWriter}
 import org.apache.spark.sql.execution.streaming.runtime.StreamingCheckpointConstants.{DIR_NAME_COMMITS, DIR_NAME_OFFSETS, DIR_NAME_STATE}
 import org.apache.spark.sql.execution.streaming.sources.{ForeachBatchSink, WriteToMicroBatchDataSource, WriteToMicroBatchDataSourceV1}
@@ -128,6 +128,16 @@ class MicroBatchExecution(
       MicroBatchExecution.DEFAULT_SINK_NAME
     }
   }
+
+  // Historical sink metadata keyed by sink name, read from the commit log on restart. Hydrated by
+  // [[populateStartOffsets]] from the latest CommitMetadataV3 and rewritten by the commit-log write
+  // in [[markMicroBatchEnd]]. The active sink is identified by its isActive flag, not by position,
+  // so the iteration order is not significant.
+  private val sinkMetadataMap = mutable.HashMap.empty[String, SinkMetadataInfo]
+
+  /** True when the current query should persist V3 sink metadata in the commit log. */
+  private def commitLogV3Enabled: Boolean =
+    sparkSession.sessionState.conf.enableStreamingSinkEvolution
 
   @volatile protected[sql] var triggerExecutor: TriggerExecutor = _
 
@@ -765,6 +775,11 @@ class MicroBatchExecution(
             commitMetadata.stateUniqueIds.foreach {
               stateUniqueIds => currentStateStoreCkptId ++= stateUniqueIds
             }
+            commitMetadata match {
+              case v3: CommitMetadataV3 =>
+                sinkMetadataMap ++= v3.sinkMetadataMap
+              case _ =>
+            }
             if (latestBatchId == latestCommittedBatchId) {
               /* The last batch was successfully committed, so we can safely process a
                * new next batch but first:
@@ -1196,6 +1211,11 @@ class MicroBatchExecution(
     setupStateStoreCommitTracking(execCtx)
 
     markMicroBatchExecutionStart(execCtx)
+    if (!isActive) {
+      // Workaround for the case the interrupt status is unexpectedly cleared. See SPARK-57963 for
+      // more details.
+      Thread.currentThread.interrupt
+    }
 
     if (trigger.isInstanceOf[RealTimeTrigger]) {
       RealTimeModeAllowlist.checkAllowedPhysicalOperator(
@@ -1463,8 +1483,36 @@ class MicroBatchExecution(
       } else {
         None
       }
-      if (!commitLog.add(execCtx.batchId,
-        CommitMetadata(watermarkTracker.currentWatermark, stateStoreCkptId))) {
+      val metadata = if (commitLogV3Enabled) {
+        val sinkApiVersion = sink match {
+          case _: SupportsWrite => "DSv2"
+          case _ => "DSv1"
+        }
+        val currentSinkInfo = SinkMetadataInfo(
+          sinkName = sinkName,
+          commitOffset = OffsetSeqLog.SERIALIZED_VOID_OFFSET,
+          providerName = sink.getClass.getName,
+          apiVersion = sinkApiVersion,
+          isActive = true)
+        // Mark every previously-seen sink as inactive, then overlay the current sink as active.
+        // The previous entry for [[sinkName]], if any, is overwritten here.
+        val deactivated = sinkMetadataMap.iterator
+          .map { case (name, info) => name -> info.copy(isActive = false) }
+          .toMap
+        val updatedSinkMap = deactivated + (sinkName -> currentSinkInfo)
+        sinkMetadataMap.clear()
+        sinkMetadataMap ++= updatedSinkMap
+        commitLog.createMetadata(
+          nextBatchWatermarkMs = watermarkTracker.currentWatermark,
+          stateUniqueIds = stateStoreCkptId,
+          sinkMetadataMap = updatedSinkMap,
+          commitLogFormatVersion = CommitLog.VERSION_3)
+      } else {
+        commitLog.createMetadata(
+          nextBatchWatermarkMs = watermarkTracker.currentWatermark,
+          stateUniqueIds = stateStoreCkptId)
+      }
+      if (!commitLog.add(execCtx.batchId, metadata)) {
         throw QueryExecutionErrors.concurrentStreamLogUpdate(execCtx.batchId)
       }
     }
