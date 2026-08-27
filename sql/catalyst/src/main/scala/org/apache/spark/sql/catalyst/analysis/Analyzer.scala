@@ -182,6 +182,36 @@ case class AnalysisContext(
 
     def getSinglePassResolverBridgeState: Option[AnalyzerBridgeState] =
       singlePassResolverBridgeState
+
+    /**
+     * Per-pass memo of the SQL resolution search path (SPARK-57758). Function resolution computes
+     * the ordered path once per analysis pass and reuses it for every [[UnresolvedFunction]],
+     * instead of rebuilding and re-iterating it per node -- the cost that, under Spark Connect's
+     * repeated re-analysis of the growing plan, scaled with plan size x analyze calls.
+     *
+     * The memo lives on the context so it shares the context's per-pass lifetime. `SET PATH` /
+     * `USE` / conf changes all produce a fresh context ([[reset]], [[withNewAnalysisContext]], or
+     * the `copy` / construction for a view or SQL-function body), and a body-level field is not
+     * carried over by `copy`, so a new pass automatically starts with an empty memo and the memo is
+     * collected with the context. It is therefore safe without an identity key or weak reference,
+     * but only for values derived from this context's immutable fields (the path derives from
+     * `resolutionPathEntries` / `catalogAndNamespace`); never memoize anything derived from the
+     * mutable fields above (`relationCache`, `referredTempFunctionNames`, ...).
+     *
+     * INVARIANT: keep this a body `var`, never a constructor parameter. `.copy()` (used by
+     * `withAnalysisContext(function)` and `withOuterPlan`) deliberately does not carry a body
+     * field, which is what gives a SQL-function-body / outer-plan context a fresh memo. Promoting
+     * it to a parameter would copy a stale path across that boundary and silently mis-resolve
+     * (SECTION 17f of `FunctionQualificationSuite` is the regression guard).
+     */
+    private var resolutionPathMemo: Seq[Seq[String]] = _
+
+    def memoizedResolutionPath(compute: => Seq[Seq[String]]): Seq[Seq[String]] = {
+      if (resolutionPathMemo == null) {
+        resolutionPathMemo = compute
+      }
+      resolutionPathMemo
+    }
 }
 
 object AnalysisContext {
@@ -842,11 +872,12 @@ class Analyzer(
       // We should make sure all expressions in condition have been resolved.
       case f @ Filter(cond, child) if hasGroupingFunction(cond) && cond.resolved =>
         val groupingExprs = findGroupingExprs(child)
-        // The unresolved grouping id will be resolved by ResolveReferences
+        // For the grand total this is a resolved Literal(0); otherwise the unresolved
+        // spark_grouping_id attribute is resolved by ResolveReferences.
         val newCond = GroupingAnalyticsTransformer.replaceGroupingFunction(
           expression = cond,
           groupByExpressions = groupingExprs,
-          gid = VirtualColumn.groupingIdAttribute,
+          gid = GroupingAnalyticsTransformer.groupingIdExpression(groupingExprs),
           newAlias = (child, name, qualifier) =>
             Alias(child, name.get)(qualifier = qualifier)
         )
@@ -856,8 +887,9 @@ class Analyzer(
       case s @ Sort(order, _, child, _)
         if order.exists(hasGroupingFunction) && order.forall(_.resolved) =>
         val groupingExprs = findGroupingExprs(child)
-        val gid = VirtualColumn.groupingIdAttribute
-        // The unresolved grouping id will be resolved by ResolveReferences
+        val gid = GroupingAnalyticsTransformer.groupingIdExpression(groupingExprs)
+        // For the grand total this is a resolved Literal(0); otherwise the unresolved
+        // spark_grouping_id attribute is resolved by ResolveReferences.
         val newOrder = order.map { expression =>
           GroupingAnalyticsTransformer.replaceGroupingFunction(
             expression = expression,
