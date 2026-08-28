@@ -19,6 +19,7 @@ package org.apache.spark.deploy.k8s.features
 import java.io.File
 import java.nio.charset.MalformedInputException
 import java.nio.file.Files
+import java.util.Base64
 
 import scala.io.{Codec, Source}
 import scala.jdk.CollectionConverters._
@@ -57,7 +58,7 @@ private[spark] class HadoopConfDriverFeatureStep(conf: KubernetesConf)
     } catch {
       case e: MalformedInputException =>
         logWarning(log"Unable to read a non UTF-8 encoded file " +
-          log"${MDC(PATH, file.getAbsolutePath)}. Skipping...", e)
+          log"${MDC(PATH, file.getAbsolutePath)}. Adding as binary...", e)
         false
     } finally {
       source.close()
@@ -67,7 +68,7 @@ private[spark] class HadoopConfDriverFeatureStep(conf: KubernetesConf)
   private lazy val confFiles: Seq[File] = {
     val dir = new File(confDir.get)
     if (dir.isDirectory) {
-      dir.listFiles.filter(_.isFile).filter(_.canRead).filter(isText(_)).toImmutableArraySeq
+      dir.listFiles.filter(_.isFile).filter(_.canRead).toImmutableArraySeq
     } else {
       Nil
     }
@@ -134,8 +135,13 @@ private[spark] class HadoopConfDriverFeatureStep(conf: KubernetesConf)
 
   override def getAdditionalKubernetesResources(): Seq[HasMetadata] = {
     if (confDir.isDefined) {
-      val fileMap: java.util.Map[String, String] = confFiles.map { file =>
+      val fileMap: java.util.Map[String, String] = confFiles.filter(isText).map { file =>
         (file.getName(), Files.readString(file.toPath))
+      }.toMap.asJava
+      // Files that are not valid UTF-8 text (keystores, for example) would be corrupted if
+      // they went into `data`, so they are base64 encoded into `binaryData` instead.
+      val fileBinaryMap: java.util.Map[String, String] = confFiles.filterNot(isText).map { file =>
+        (file.getName(), Base64.getEncoder.encodeToString(Files.readAllBytes(file.toPath)))
       }.toMap.asJava
 
       Seq(new ConfigMapBuilder()
@@ -144,6 +150,7 @@ private[spark] class HadoopConfDriverFeatureStep(conf: KubernetesConf)
           .endMetadata()
         .withImmutable(true)
         .addToData(fileMap)
+        .addToBinaryData(fileBinaryMap)
         .build())
     } else {
       Nil

@@ -31,7 +31,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.deploy.k8s.{KubernetesConf, KubernetesUtils}
 import org.apache.spark.deploy.k8s.Config._
 import org.apache.spark.deploy.k8s.Constants._
-import org.apache.spark.deploy.k8s.submit.KubernetesClientUtils
+import org.apache.spark.deploy.k8s.submit.{ConfigMapItem, KubernetesClientUtils}
 import org.apache.spark.deploy.security.HadoopDelegationTokenManager
 import org.apache.spark.internal.LogKeys.{COUNT, TOTAL}
 import org.apache.spark.internal.config.SCHEDULER_MIN_REGISTERED_RESOURCES_RATIO
@@ -89,11 +89,12 @@ private[spark] class KubernetesClusterSchedulerBackend(
     val resolvedExecutorProperties =
       Map(KUBERNETES_NAMESPACE.key -> namespace)
     val confFilesMap = KubernetesClientUtils
-      .buildSparkConfDirFilesMap(configMapName, conf, resolvedExecutorProperties) ++
-      resolvedExecutorProperties
+      .buildSparkConfDirFilesMapWithBinary(configMapName, conf, resolvedExecutorProperties) ++
+      resolvedExecutorProperties.map { case (k, v) => k -> ConfigMapItem(v, true) }
     val labels =
       Map(SPARK_APP_ID_LABEL -> applicationId(), SPARK_ROLE_LABEL -> SPARK_POD_EXECUTOR_ROLE)
-    val configMap = KubernetesClientUtils.buildConfigMap(configMapName, confFilesMap, labels)
+    val configMap =
+      KubernetesClientUtils.buildConfigMapWithBinary(configMapName, confFilesMap, labels)
     KubernetesUtils.addOwnerReference(driverPod.orNull, Seq(configMap))
     kubernetesClient.configMaps().inNamespace(namespace).resource(configMap).create()
   }

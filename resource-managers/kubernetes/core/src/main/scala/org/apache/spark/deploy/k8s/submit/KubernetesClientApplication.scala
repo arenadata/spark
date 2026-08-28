@@ -104,10 +104,10 @@ private[spark] class Client(
   def run(): Unit = {
     val resolvedDriverSpec = builder.buildFromFeatures(conf, kubernetesClient)
     val configMapName = KubernetesClientUtils.configMapNameDriver
-    val confFilesMap = KubernetesClientUtils.buildSparkConfDirFilesMap(configMapName,
+    val confFilesMap = KubernetesClientUtils.buildSparkConfDirFilesMapWithBinary(configMapName,
       conf.sparkConf, resolvedDriverSpec.systemProperties)
-    val configMap = KubernetesClientUtils.buildConfigMap(configMapName, confFilesMap +
-        (KUBERNETES_NAMESPACE.key -> conf.namespace))
+    val configMap = KubernetesClientUtils.buildConfigMapWithBinary(configMapName, confFilesMap +
+        (KUBERNETES_NAMESPACE.key -> ConfigMapItem(conf.namespace, true)))
 
     // The include of the ENV_VAR for "SPARK_CONF_DIR" is to allow for the
     // Spark command builder to pickup on the Java Options present in the ConfigMap
@@ -127,7 +127,8 @@ private[spark] class Client(
         .addNewVolume()
           .withName(SPARK_CONF_VOLUME_DRIVER)
           .withNewConfigMap()
-            .withItems(KubernetesClientUtils.buildKeyToPathObjects(confFilesMap).asJava)
+            .withItems(
+              KubernetesClientUtils.buildKeyToPathObjectsWithBinary(confFilesMap).asJava)
             .withName(configMapName)
             .endConfigMap()
           .endVolume()

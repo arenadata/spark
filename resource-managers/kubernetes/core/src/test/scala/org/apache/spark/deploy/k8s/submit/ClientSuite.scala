@@ -274,8 +274,10 @@ class ClientSuite extends SparkFunSuite with BeforeAndAfter {
   }
 
   test("All files from SPARK_CONF_DIR, " +
-    "except templates, spark config, binary files and are within size limit, " +
+    "except templates, spark config and are within size limit, " +
     "should be populated to pod's configMap.") {
+    val nonUtf8FileName = "non_utf8.txt"
+
     def testSetup: (SparkConf, Seq[String]) = {
       val tempDir = Utils.createTempDir()
       val sparkConf = new SparkConf(loadDefaults = false)
@@ -286,13 +288,13 @@ class ClientSuite extends SparkFunSuite with BeforeAndAfter {
       // File names - which should not get mounted on the resultant config map.
       val filteredConfFileNames =
         Set("spark-env.sh.template", "spark.properties", "spark-defaults.conf",
-          "test.gz", "test2.jar", "non_utf8.txt")
+          "test.gz", "test2.jar")
       val confFileNames = (for (i <- 1 to 5) yield s"testConf.$i") ++
-        List("spark-env.sh") ++ filteredConfFileNames
+        List("spark-env.sh", nonUtf8FileName) ++ filteredConfFileNames
 
       val testConfFiles = (for (i <- confFileNames) yield {
         val file = new File(s"${tempConfDir.getAbsolutePath}/$i")
-        if (i.startsWith("non_utf8")) { // filling some non-utf-8 binary
+        if (i == nonUtf8FileName) { // filling some non-utf-8 binary
           Files.write(file.toPath, Array[Byte](0x00.toByte, 0xA1.toByte))
         } else {
           Files.write(file.toPath, "conf1key=conf1value".getBytes(StandardCharsets.UTF_8))
@@ -336,10 +338,13 @@ class ClientSuite extends SparkFunSuite with BeforeAndAfter {
     assert(configMap.getMetadata.getName == configMapName)
     val configMapLoadedFiles = configMap.getData.keySet().asScala.toSet -
         Config.KUBERNETES_NAMESPACE.key
-    assert(configMapLoadedFiles === expectedConfFiles.toSet ++ Set(SPARK_CONF_FILE_NAME))
+    assert(configMapLoadedFiles ===
+      expectedConfFiles.toSet - nonUtf8FileName ++ Set(SPARK_CONF_FILE_NAME))
     for (f <- configMapLoadedFiles) {
       assert(configMap.getData.get(f).contains("conf1key=conf1value"))
     }
+    // The non UTF-8 file is mounted too, base64 encoded under `binaryData`.
+    assert(configMap.getBinaryData.keySet().asScala.toSet === Set(nonUtf8FileName))
   }
 
   test("Waiting for app completion should stall on the watcher") {
