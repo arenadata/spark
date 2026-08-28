@@ -2933,11 +2933,15 @@ private[spark] object Utils
   /**
    * Check the validity of the given Kubernetes master URL and return the resolved URL. Prefix
    * "k8s://" is appended to the resolved URL as the prefix is used by KubernetesClusterManager
-   * in canCreate to determine if the KubernetesClusterManager should be used.
+   * in canCreate to determine if the KubernetesClusterManager should be used. A bare "k8s"
+   * master carries no URL to resolve and is returned as is.
    */
   def checkAndGetK8sMasterUrl(rawMasterURL: String): String = {
     require(SparkMasterRegex.isK8s(rawMasterURL),
-      "Kubernetes master URL must start with k8s://.")
+      "Kubernetes master URL must start with k8s:// or be exactly k8s.")
+    if (rawMasterURL == "k8s") {
+      return rawMasterURL
+    }
     val masterWithoutK8sPrefix = rawMasterURL.substring("k8s://".length)
 
     // To handle master URLs, e.g., k8s://host:port.
