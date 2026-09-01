@@ -774,6 +774,50 @@ abstract class HistoryServerSuite extends SparkFunSuite with BeforeAndAfter with
     assert(body.contains("metrics_jvm_heap_used"))
   }
 
+  test("NGSOK-2025: bare metrics paths are served without a redirect") {
+    stop()
+    init(
+      History.METRICS_ENABLED.key -> "true",
+      "spark.metrics.conf.applicationHistory.sink.prometheusServlet.class" ->
+        "org.apache.spark.metrics.sink.PrometheusServlet",
+      "spark.metrics.conf.applicationHistory.sink.prometheusServlet.path" ->
+        "/metrics/applicationHistory/prometheus",
+      "spark.metrics.conf.applicationHistory.sink.servlet.class" ->
+        "org.apache.spark.metrics.sink.MetricsServlet",
+      "spark.metrics.conf.applicationHistory.sink.servlet.path" ->
+        "/metrics/applicationHistory/json")
+    val port = server.boundPort
+
+    // Follow no redirects, so a trailing-slash redirect fails the test instead of being resolved.
+    def get(path: String): (Int, String, String) = {
+      val conn = new URL(s"http://$localhost:$port$path").openConnection()
+        .asInstanceOf[HttpURLConnection]
+      conn.setRequestMethod("GET")
+      conn.setUseCaches(false)
+      conn.setDefaultUseCaches(false)
+      conn.setInstanceFollowRedirects(false)
+      conn.connect()
+      (conn.getResponseCode, conn.getHeaderField("Location"),
+        IOUtils.toString(conn.getInputStream, StandardCharsets.UTF_8))
+    }
+
+    val (promCode, promLocation, promBody) = get("/metrics/applicationHistory/prometheus")
+    assert(promCode === 200)
+    assert(promLocation === null)
+    assert(promBody.contains("metrics_history_application_count"))
+
+    val (jsonCode, jsonLocation, jsonBody) = get("/metrics/applicationHistory/json")
+    assert(jsonCode === 200)
+    assert(jsonLocation === null)
+    assert(jsonBody.contains("gauges"))
+
+    // The trailing-slash form keeps working.
+    val (slashCode, content, _) = HistoryServerSuite.getContentAndCode(
+      new URL(s"http://$localhost:$port/metrics/applicationHistory/prometheus/"))
+    assert(slashCode === 200)
+    assert(content.get.contains("metrics_history_application_count"))
+  }
+
   test("History Server metrics system can be disabled") {
     stop()
     init(

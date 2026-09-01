@@ -46,10 +46,11 @@ private[spark] class MetricsServlet(
     new MetricsModule(TimeUnit.SECONDS, TimeUnit.MILLISECONDS, servletShowSample))
 
   def getHandlers(conf: SparkConf): Array[ServletContextHandler] = {
-    Array[ServletContextHandler](
-      createServletHandler(servletPath,
-        new ServletParams(request => getMetricsSnapshot(request), "text/json"), conf)
-    )
+    val handler = createServletHandler(servletPath,
+      new ServletParams(request => getMetricsSnapshot(request), "text/json"), conf)
+    // See PrometheusServlet.getHandlers.
+    handler.setAllowNullPathInfo(true)
+    Array[ServletContextHandler](handler)
   }
 
   def getMetricsSnapshot(request: HttpServletRequest): String = {
