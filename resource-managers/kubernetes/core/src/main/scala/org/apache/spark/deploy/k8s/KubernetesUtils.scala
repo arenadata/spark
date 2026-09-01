@@ -141,7 +141,8 @@ object KubernetesUtils extends Logging {
   }
 
   @Since("2.4.0")
-  def parseMasterUrl(url: String): String = url.substring("k8s://".length)
+  // A master without a "k8s://" prefix to strip, a bare "k8s" in practice, is returned as is.
+  def parseMasterUrl(url: String): String = url.stripPrefix("k8s://")
 
   @Since("3.0.0")
   def formatPairsBundle(pairs: Seq[(String, String)], indent: Int = 1) : String = {

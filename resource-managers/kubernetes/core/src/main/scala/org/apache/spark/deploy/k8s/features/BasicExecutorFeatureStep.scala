@@ -110,8 +110,8 @@ private[spark] class BasicExecutorFeatureStep(
     val name = s"$executorPodNamePrefix-exec-${kubernetesConf.executorId}"
     val configMapName = KubernetesClientUtils.configMapNameExecutor
     val confFilesMap = KubernetesClientUtils
-      .buildSparkConfDirFilesMap(configMapName, kubernetesConf.sparkConf, Map.empty)
-    val keyToPaths = KubernetesClientUtils.buildKeyToPathObjects(confFilesMap)
+      .buildSparkConfDirFilesMapWithBinary(configMapName, kubernetesConf.sparkConf, Map.empty)
+    val keyToPaths = KubernetesClientUtils.buildKeyToPathObjectsWithBinary(confFilesMap)
     // According to
     // https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names,
     // hostname must be no longer than `KUBERNETES_DNS_LABEL_NAME_MAX_LENGTH`(63) characters,

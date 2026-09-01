@@ -3464,8 +3464,9 @@ private object SparkMasterRegex {
   val LOCAL_CLUSTER_REGEX = """local-cluster\[\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*]""".r
   // Regular expression for connecting to Spark deploy clusters
   val SPARK_REGEX = """spark://(.*)""".r
-  // Regular expression for connecting to kubernetes clusters
-  val KUBERNETES_REGEX = """k8s://(.*)""".r
+  // Regular expression for connecting to kubernetes clusters. The URL is optional, a bare
+  // "k8s" master means "use the cluster the client is already configured for".
+  val KUBERNETES_REGEX = """k8s(?:://(.*))?""".r
 
   def isK8s(master: String) : Boolean = isK8s(Option(master))
 

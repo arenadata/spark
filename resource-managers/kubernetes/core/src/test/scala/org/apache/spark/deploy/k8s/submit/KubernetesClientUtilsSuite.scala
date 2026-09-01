@@ -20,8 +20,8 @@ package org.apache.spark.deploy.k8s.submit
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.util.{Base64, UUID}
 import java.util.{HashMap => JHashMap}
-import java.util.UUID
 
 import scala.jdk.CollectionConverters._
 
@@ -50,13 +50,17 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
   }
 
   test("verify load files, loads only allowed files and not the disallowed files.") {
+    val binaryContent = Array[Byte](0x00.toByte, 0xA1.toByte)
     val input: Map[String, Array[Byte]] = Map("test.txt" -> "test123", "z12.zip" -> "zZ",
       "rere.jar" -> "@31", "spark.jar" -> "@31", "_test" -> "", "sample.conf" -> "conf")
       .map(f => f._1 -> f._2.getBytes(StandardCharsets.UTF_8)) ++
-      Map("binary-file.conf" -> Array[Byte](0x00.toByte, 0xA1.toByte))
+      Map("binary-file.conf" -> binaryContent)
     val sparkConf = testSetup(input)
     val output = KubernetesClientUtils.loadSparkConfDirFiles(sparkConf)
-    val expectedOutput = Map("test.txt" -> "test123", "sample.conf" -> "conf", "_test" -> "")
+    val expectedOutput = Map("test.txt" -> ConfigMapItem("test123", true),
+      "sample.conf" -> ConfigMapItem("conf", true), "_test" -> ConfigMapItem("", true),
+      "binary-file.conf" ->
+        ConfigMapItem(Base64.getEncoder.encodeToString(binaryContent), false))
     assert(output === expectedOutput)
   }
 
@@ -65,11 +69,12 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
     val sparkConf = testSetup(input.map(f => f._1 -> f._2.getBytes(StandardCharsets.UTF_8)))
       .set(Config.CONFIG_MAP_MAXSIZE.key, "60")
     val output = KubernetesClientUtils.loadSparkConfDirFiles(sparkConf)
-    val expectedOutput = Map("testConf.1" -> "test123456", "testConf.2" -> "test123456")
+    val expectedOutput = Map("testConf.1" -> ConfigMapItem("test123456", true),
+      "testConf.2" -> ConfigMapItem("test123456", true))
     assert(output === expectedOutput)
     val output1 = KubernetesClientUtils.loadSparkConfDirFiles(
       sparkConf.set(Config.CONFIG_MAP_MAXSIZE.key, "250000"))
-    assert(output1 === input)
+    assert(output1 === input.map { case (k, v) => k -> ConfigMapItem(v, true) })
   }
 
   test("verify load files, truncates the content to maxSize, when keys are equal in length.") {
@@ -77,8 +82,9 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
     val sparkConf = testSetup(input.map(f => f._1 -> f._2.getBytes(StandardCharsets.UTF_8)))
       .set(Config.CONFIG_MAP_MAXSIZE.key, "80")
     val output = KubernetesClientUtils.loadSparkConfDirFiles(sparkConf)
-    val expectedOutput = Map("testConf.1" -> "test123456", "testConf.2" -> "test123456",
-      "testConf.3" -> "test123456")
+    val expectedOutput = Map("testConf.1" -> ConfigMapItem("test123456", true),
+      "testConf.2" -> ConfigMapItem("test123456", true),
+      "testConf.3" -> ConfigMapItem("test123456", true))
     assert(output === expectedOutput)
   }
 
@@ -103,6 +109,26 @@ class KubernetesClientUtilsSuite extends SparkFunSuite with BeforeAndAfter {
         .addToData(confFileMap.asJava)
         .build()
     assert(outputConfigMap === expectedConfigMap)
+  }
+
+  test("NGSOK-1387: verify that binary files land in the configmap binaryData") {
+    val configMapName = s"configmap-name-${UUID.randomUUID.toString}"
+    val binaryContent = Array[Byte](0x00.toByte, 0xA1.toByte)
+    val sparkConf = testSetup(Map("sample.conf" -> "conf".getBytes(StandardCharsets.UTF_8),
+      "keystore.jks" -> binaryContent))
+    val confFileMap = KubernetesClientUtils
+      .buildSparkConfDirFilesMapWithBinary(configMapName, sparkConf, Map.empty)
+    val outputConfigMap = KubernetesClientUtils.buildConfigMapWithBinary(configMapName, confFileMap)
+
+    assert(outputConfigMap.getData.asScala === Map("sample.conf" -> "conf"))
+    assert(outputConfigMap.getBinaryData.asScala ===
+      Map("keystore.jks" -> Base64.getEncoder.encodeToString(binaryContent)))
+    // Both plain text and binary files have to be mounted from the config map.
+    assert(KubernetesClientUtils.buildKeyToPathObjectsWithBinary(confFileMap)
+      .map(_.getKey) === Seq("keystore.jks", "sample.conf"))
+    // The public, text-only API keeps dropping the binary files.
+    assert(KubernetesClientUtils
+      .buildSparkConfDirFilesMap(configMapName, sparkConf, Map.empty).keySet === Set("sample.conf"))
   }
 
   test("SPARK-53832: verify that configmap built as expected va Java-friendly APIs") {

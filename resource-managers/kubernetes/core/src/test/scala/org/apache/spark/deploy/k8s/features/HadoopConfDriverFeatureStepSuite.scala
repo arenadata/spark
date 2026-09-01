@@ -77,6 +77,7 @@ class HadoopConfDriverFeatureStepSuite extends SparkFunSuite {
 
     val hadoopConfMap = filter[ConfigMap](step.getAdditionalKubernetesResources()).head
     assert(hadoopConfMap.getData().keySet().asScala === confFiles)
+    assert(hadoopConfMap.getBinaryData().keySet().asScala === Set("another.bin"))
   }
 
   private def checkPod(pod: SparkPod): Unit = {
