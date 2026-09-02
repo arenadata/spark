@@ -525,7 +525,7 @@ class UtilsSuite extends SparkFunSuite with ResetSystemProperties {
 
     // The following 3 scenarios are only for the method: createDirectory(File)
     // 6. Symbolic link
-    lazy val javaVersion = System.getProperty("java.version").split("[+.\\-]+", 3)
+    lazy val javaVersion = System.getProperty("java.version").split("[+.\\-]+")
     val scenario6 = java.nio.file.Files.createSymbolicLink(new File(testDir, "scenario6")
       .toPath, scenario1.toPath).toFile
     if (Utils.isJavaVersionAtLeast21) {
