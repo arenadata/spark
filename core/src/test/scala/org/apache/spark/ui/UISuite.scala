@@ -17,7 +17,7 @@
 
 package org.apache.spark.ui
 
-import java.net.{BindException, ServerSocket}
+import java.net.{BindException, HttpURLConnection, ServerSocket}
 import java.net.{URI, URL}
 import java.util.Locale
 import javax.servlet._
@@ -404,6 +404,37 @@ class UISuite extends SparkFunSuite {
       // If the following assertion fails when we upgrade Jetty, it seems to change the behavior of
       // handling context path which doesn't have the trailing slash.
       assert(TestUtils.httpResponseCode(new URL(urlStr)) === HttpServletResponse.SC_OK)
+    } finally {
+      stopServer(serverInfo)
+    }
+  }
+
+  test("NGSOK-2025: only opted-in contexts skip the trailing-slash redirect") {
+    val (conf, securityMgr, sslOptions) = sslDisabledConf()
+    val serverInfo = JettyUtils.startJettyServer("0.0.0.0", 0, sslOptions, conf)
+    try {
+      val servlet = new HttpServlet {
+        override def doGet(req: HttpServletRequest, res: HttpServletResponse): Unit = {
+          res.setStatus(HttpServletResponse.SC_OK)
+          res.getWriter.print("ok")
+        }
+      }
+      val plain = JettyUtils.createServletHandler("/plain", servlet, "")
+      val direct = JettyUtils.createServletHandler("/direct", servlet, "")
+      direct.setAllowNullPathInfo(true)
+      Seq(plain, direct).foreach(serverInfo.addHandler(_, securityMgr))
+
+      def code(path: String): Int = {
+        val conn = new URL(s"http://$localhost:${serverInfo.boundPort}$path")
+          .openConnection().asInstanceOf[HttpURLConnection]
+        conn.setInstanceFollowRedirects(false)
+        conn.connect()
+        conn.getResponseCode
+      }
+
+      // Only the metrics sinks opt in; every other context keeps Jetty's redirect.
+      assert(code("/plain") === HttpServletResponse.SC_FOUND)
+      assert(code("/direct") === HttpServletResponse.SC_OK)
     } finally {
       stopServer(serverInfo)
     }

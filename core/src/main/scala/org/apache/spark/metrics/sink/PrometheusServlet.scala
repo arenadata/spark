@@ -41,10 +41,14 @@ private[spark] class PrometheusServlet(
   val servletPath = property.getProperty(SERVLET_KEY_PATH)
 
   def getHandlers(conf: SparkConf): Array[ServletContextHandler] = {
-    Array[ServletContextHandler](
-      createServletHandler(servletPath,
-        new ServletParams(request => getMetricsSnapshot(request), "text/plain"), conf)
-    )
+    val handler = createServletHandler(servletPath,
+      new ServletParams(request => getMetricsSnapshot(request), "text/plain"), conf)
+    // The whole metrics path is the Jetty context path, so a request for the bare path is answered
+    // by ContextHandler with a redirect whose Location is built from the Host header - a scraper
+    // sending a portless Host loses the port. Serve the bare path directly instead; this context
+    // has a single servlet mapped at "/", and getMetricsSnapshot never reads the path info.
+    handler.setAllowNullPathInfo(true)
+    Array[ServletContextHandler](handler)
   }
 
   def getMetricsSnapshot(request: HttpServletRequest): String = {
