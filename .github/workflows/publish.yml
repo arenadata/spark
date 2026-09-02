@@ -1,0 +1,303 @@
+name: Publish
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to build and attach assets to (e.g. v4.2.0.2-4.4.0-0). Leave empty to build the dispatched ref without touching any release.'
+        required: false
+        type: string
+      publish_maven:
+        description: 'Deploy jars to the GitHub Packages Maven registry'
+        required: false
+        type: boolean
+        default: true
+      publish_assets:
+        description: 'Build the distribution tarballs and attach them to the release'
+        required: false
+        type: boolean
+        default: true
+      resume_from:
+        description: 'Resume the Maven reactor from this project (maven -rf, e.g. :spark-sql_2.13). Leave empty to build all.'
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: '17'
+  PYTHON_VERSION: '3.10'
+  # Profiles shared by the Maven deploy and by every binary distribution.
+  # -Phadoop-cloud is deliberately NOT here: it pulls the AWS SDK bundle into the
+  # assembly and roughly doubles the tarball, so only the `hadoop3-cloud`
+  # distribution (and the Maven deploy, which publishes spark-hadoop-cloud) adds it.
+  SPARK_PROFILES: -Pscala-2.13 -Phadoop-3 -Phive -Phive-thriftserver -Pyarn -Pkubernetes -Pconnect -Pvolcano
+
+jobs:
+  # Everything that can reject the release runs here, once and cheaply, so a bad
+  # tag fails in a minute instead of two hours into a reactor build. All three
+  # checks are no-ops when there is no release tag, which is the dispatch path
+  # used to smoke-test the workflow itself.
+  verify:
+    name: "Verify the release commit"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+          # `git branch --contains` needs the remote-tracking branches, which
+          # only a full-history checkout provides.
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Verify the tag is on a release or develop branch
+        run: |
+          if [[ -z "$RELEASE_TAG" ]]; then echo "No release tag: skipping."; exit 0; fi
+          SHA="$(git rev-parse HEAD)"
+          BRANCHES="$(git branch -r --contains "$SHA" | grep -E 'origin/(release|develop)/' || true)"
+          if [[ -z "$BRANCHES" ]]; then
+            echo "::error::Tag must be on a release/** or develop/** branch. Found on:"
+            git branch -r --contains "$SHA"
+            exit 1
+          fi
+          echo "Tag is on:$BRANCHES"
+
+      - name: Verify CI passed for this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -z "$RELEASE_TAG" ]]; then echo "No release tag: skipping."; exit 0; fi
+          SHA="$(git rev-parse HEAD)"
+          RUN="$(gh run list --commit "$SHA" --workflow CI --limit 1 --json status,conclusion)"
+          STATUS="$(jq -r '.[0].status // ""' <<< "$RUN")"
+          CONCLUSION="$(jq -r '.[0].conclusion // ""' <<< "$RUN")"
+          if [[ -z "$STATUS" ]]; then
+            echo "::error::No CI run found for $SHA. Push to a release/** or develop/** branch first."
+            exit 1
+          fi
+          # An unfinished run reports an empty conclusion, which is a different
+          # problem from a failed one and deserves a different message.
+          if [[ "$STATUS" != "completed" ]]; then
+            echo "::error::CI for $SHA is still $STATUS. Wait for it to finish before releasing."
+            exit 1
+          fi
+          if [[ "$CONCLUSION" != "success" ]]; then
+            echo "::error::CI has not passed for $SHA (conclusion: $CONCLUSION)."
+            exit 1
+          fi
+          echo "CI passed"
+
+      # Refuses to publish under a version the tag does not claim, so a tag cut
+      # from the wrong branch cannot overwrite someone else's release.
+      - name: Verify release tag matches pom version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -z "$RELEASE_TAG" ]]; then echo "No release tag: skipping."; exit 0; fi
+          # build/mvn logs to stderr, so -DforceStdout yields a clean value.
+          POM_VERSION="$(./build/mvn -q -N help:evaluate -Dexpression=project.version -DforceStdout)"
+          TAG_VERSION="${RELEASE_TAG#v}"
+          echo "pom version: '$POM_VERSION'"
+          echo "tag version: '$TAG_VERSION'"
+          if [[ "$POM_VERSION" != "$TAG_VERSION" ]]; then
+            echo "::error::Release tag ('$TAG_VERSION') does not match pom version ('$POM_VERSION'). Aborting publish."
+            exit 1
+          fi
+
+  maven:
+    name: "Deploy to GitHub Packages (arenadata)"
+    needs: verify
+    if: success() && (github.event_name == 'release' || inputs.publish_maven)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    permissions:
+      contents: read
+      packages: write
+    env:
+      MAVEN_ARGS: -B -V -e -ntp
+      MAVEN_OPTS: -Xmx4g -XX:ReservedCodeCacheSize=1g -XX:MaxMetaspaceSize=2g
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          # Authenticates both the `arenadata` <repositories> entry the reactor
+          # reads the Arenadata Hive artifacts from (GitHub Packages requires
+          # credentials even for public repositories) and the identically-named
+          # <distributionManagement> entry it deploys to.
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      # deployAtEnd builds the whole reactor first and defers all uploads until
+      # every module has built successfully, so a failure mid-reactor does not
+      # leave a partial release. GitHub Packages does not allow re-publishing an
+      # existing version, so this all-or-nothing behavior is what we want.
+      #
+      # Javadoc/scaladoc jars are skipped: attach-scaladocs is bound to `verify`,
+      # so `deploy` would build them for the whole reactor and roughly double the
+      # job. Source jars are still published.
+      - name: Build and deploy artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESUME_FROM: ${{ github.event_name == 'workflow_dispatch' && inputs.resume_from || '' }}
+        run: |
+          set -eo pipefail
+          resume_arg=()
+          if [[ -n "$RESUME_FROM" ]]; then
+            # NOTE: with -rf, deployAtEnd only covers the modules in the partial
+            # reactor; the skipped ones are not (re-)deployed.
+            resume_arg=(-rf "$RESUME_FROM")
+          fi
+          ./build/mvn $MAVEN_ARGS deploy \
+            -DskipTests -DdeployAtEnd=true \
+            -Dmaven.javadoc.skip=true -Dmaven.scaladoc.skip=true \
+            $SPARK_PROFILES -Phadoop-cloud \
+            "${resume_arg[@]}"
+
+  assets:
+    name: "Distribution: ${{ matrix.name }}"
+    needs: verify
+    if: success() && (github.event_name == 'release' || inputs.publish_assets)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    permissions:
+      contents: write
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Reproduces the asset set of the previous releases:
+          #   spark-<version>-bin-hadoop3.tgz
+          #   spark-<version>-bin-hadoop3-cloud.tgz
+          #   pyspark-<version>.tar.gz   (built alongside the -cloud distribution)
+          - name: hadoop3
+            extra_profiles: ''
+            make_pip: false
+          - name: hadoop3-cloud
+            extra_profiles: '-Phadoop-cloud'
+            make_pip: true
+    env:
+      # Passed through the environment (Maven >= 3.9 reads MAVEN_ARGS) rather than
+      # on the command line: make-distribution.sh records its own argv in the
+      # shipped RELEASE file, and CI plumbing does not belong in a released
+      # artifact. -V is left out because the script parses `mvn help:evaluate`
+      # output to learn the version and the version banner would end up in it.
+      MAVEN_ARGS: -B -ntp -e
+      MAVEN_OPTS: -Xmx4g -XX:ReservedCodeCacheSize=1g -XX:MaxMetaspaceSize=2g
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
+    steps:
+      # The -cloud distribution keeps the reactor output, dist/, the tarball and
+      # the PySpark sdist on disk at the same time; the stock runner image does
+      # not leave enough room for that.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          # Authenticates both the `arenadata` <repositories> entry the reactor
+          # reads the Arenadata Hive artifacts from (GitHub Packages requires
+          # credentials even for public repositories) and the identically-named
+          # <distributionManagement> entry it deploys to.
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install PySpark packaging dependencies
+        if: matrix.make_pip
+        run: python3 -m pip install --upgrade pip setuptools wheel
+
+      # make-distribution.sh already runs Maven with -DskipTests and with the
+      # javadoc/scaladoc/source/cyclonedx plugins skipped. The profile list is
+      # exactly the one recorded in the RELEASE file of v4.2.0.1-4.3.0-2.
+      - name: Build distribution
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          ./dev/make-distribution.sh
+          --name ${{ matrix.name }} --tgz ${{ matrix.make_pip && '--pip' || '' }}
+          ${{ env.SPARK_PROFILES }} ${{ matrix.extra_profiles }}
+
+      # dist/ is a full uncompressed copy of the tarball and is no longer needed
+      # once the tarball exists. Dropped here rather than in the upload step so
+      # the space comes back on the dispatch-without-a-tag path too.
+      - name: Drop the uncompressed distribution
+        run: rm -rf dist
+
+      - name: Upload assets to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAKE_PIP: ${{ matrix.make_pip }}
+          DIST_NAME: ${{ matrix.name }}
+        run: |
+          set -eo pipefail
+          shopt -s nullglob
+
+          # Resolves exactly one file for the given glob and attaches it to the
+          # release, then frees the space before the next asset is handled.
+          upload_single() {
+            local description="$1"
+            shift
+            if [[ $# -ne 1 ]]; then
+              echo "::error::expected exactly one $description, found $#: $*"
+              exit 1
+            fi
+            ls -l "$1"
+            if [[ -n "$RELEASE_TAG" ]]; then
+              gh release upload "$RELEASE_TAG" "$1" --clobber
+              rm -f "$1"
+            fi
+          }
+
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "No release tag: the assets are built and checked but not uploaded."
+          fi
+
+          upload_single "spark-*-bin-$DIST_NAME.tgz tarball" spark-*-bin-"$DIST_NAME".tgz
+
+          if [[ "$MAKE_PIP" == "true" ]]; then
+            # --pip also builds the pyspark-connect and pyspark-client sdists;
+            # only the classic one has ever been published, so anchor on a digit.
+            upload_single "PySpark sdist" python/dist/pyspark-[0-9]*.tar.gz
+          fi
