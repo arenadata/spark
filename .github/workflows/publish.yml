@@ -1,0 +1,329 @@
+name: Publish
+
+on:
+  # Maven deploys from the tag push, not from `release`: a package published by a
+  # release-triggered run gets listed among that release's assets.
+  push:
+    tags: ['v*']
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to build and attach assets to (e.g. v4.2.0.2-4.4.0-0). Leave empty to build the dispatched ref without touching any release.'
+        required: false
+        type: string
+      publish_maven:
+        description: 'Deploy jars to the GitHub Packages Maven registry'
+        required: false
+        type: boolean
+        default: true
+      publish_assets:
+        description: 'Build the distribution tarballs and attach them to the release'
+        required: false
+        type: boolean
+        default: true
+      resume_from:
+        description: 'Resume the Maven reactor from this project (maven -rf, e.g. :spark-sql_2.13). Leave empty to build all.'
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: '17'
+  PYTHON_VERSION: '3.10'
+  # -Phadoop-cloud is added per job: it roughly doubles the tarball, so only the
+  # `hadoop3-cloud` leg and the Maven deploy take it.
+  SPARK_PROFILES: -Pscala-2.13 -Phadoop-3 -Phive -Phive-thriftserver -Pyarn -Pmesos -Pkubernetes -Pconnect
+
+jobs:
+  # Cheap checks first, so a bad tag fails in a minute rather than hours into the
+  # reactor. All of them are no-ops when there is no release tag.
+  verify:
+    name: "Verify the release commit"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+          fetch-depth: 0  # `git branch --contains` needs remote-tracking branches
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Verify the tag is on a release or develop branch
+        run: |
+          if [[ -z "$RELEASE_TAG" ]]; then echo "No release tag: skipping."; exit 0; fi
+          SHA="$(git rev-parse HEAD)"
+          BRANCHES="$(git branch -r --contains "$SHA" | grep -E 'origin/(release|develop)/' || true)"
+          if [[ -z "$BRANCHES" ]]; then
+            echo "::error::Tag must be on a release/** or develop/** branch. Found on:"
+            git branch -r --contains "$SHA"
+            exit 1
+          fi
+          echo "Tag is on:$BRANCHES"
+
+      - name: Verify CI passed for this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -z "$RELEASE_TAG" ]]; then echo "No release tag: skipping."; exit 0; fi
+          SHA="$(git rev-parse HEAD)"
+          RUN="$(gh run list --commit "$SHA" --workflow CI --limit 1 --json status,conclusion)"
+          STATUS="$(jq -r '.[0].status // ""' <<< "$RUN")"
+          CONCLUSION="$(jq -r '.[0].conclusion // ""' <<< "$RUN")"
+          if [[ -z "$STATUS" ]]; then
+            echo "::error::No CI run found for $SHA. Push to a release/** or develop/** branch first."
+            exit 1
+          fi
+          if [[ "$STATUS" != "completed" ]]; then
+            echo "::error::CI for $SHA is still $STATUS. Wait for it to finish before releasing."
+            exit 1
+          fi
+          if [[ "$CONCLUSION" != "success" ]]; then
+            echo "::error::CI has not passed for $SHA (conclusion: $CONCLUSION)."
+            exit 1
+          fi
+          echo "CI passed"
+
+      - name: Verify release tag matches pom version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -z "$RELEASE_TAG" ]]; then echo "No release tag: skipping."; exit 0; fi
+          POM_VERSION="$(./build/mvn -q -N help:evaluate -Dexpression=project.version -DforceStdout)"
+          TAG_VERSION="${RELEASE_TAG#v}"
+          echo "pom version: '$POM_VERSION'"
+          echo "tag version: '$TAG_VERSION'"
+          if [[ "$POM_VERSION" != "$TAG_VERSION" ]]; then
+            echo "::error::Release tag ('$TAG_VERSION') does not match pom version ('$POM_VERSION'). Aborting publish."
+            exit 1
+          fi
+
+  maven:
+    name: "Deploy to GitHub Packages (arenadata)"
+    needs: verify
+    if: success() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_maven))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    permissions:
+      contents: read
+      packages: write
+    env:
+      MAVEN_ARGS: -B -V -e -ntp
+      MAVEN_OPTS: -Xmx4g -XX:ReservedCodeCacheSize=1g -XX:MaxMetaspaceSize=2g
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          # GitHub Packages wants credentials for reads too, so this one server-id
+          # covers both the `arenadata` <repositories> and <distributionManagement>.
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      # deployAtEnd defers every upload until the whole reactor has built, so a
+      # failure mid-reactor cannot leave a partial release. Scaladoc is skipped: it
+      # is bound to `verify` and would roughly double the job. Source jars are kept.
+      - name: Build and deploy artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESUME_FROM: ${{ github.event_name == 'workflow_dispatch' && inputs.resume_from || '' }}
+        run: |
+          set -eo pipefail
+          resume_arg=()
+          if [[ -n "$RESUME_FROM" ]]; then
+            # With -rf, deployAtEnd covers only the modules still in the reactor.
+            resume_arg=(-rf "$RESUME_FROM")
+          fi
+          ./build/mvn $MAVEN_ARGS deploy \
+            -DskipTests -DdeployAtEnd=true \
+            -Dmaven.javadoc.skip=true -Dmaven.scaladoc.skip=true \
+            $SPARK_PROFILES -Phadoop-cloud \
+            "${resume_arg[@]}"
+
+  assets:
+    name: "Distribution: ${{ matrix.name }}"
+    needs: verify
+    if: success() && (github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish_assets))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    permissions:
+      contents: write
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The sdist bundles the jars of the leg it is built in, so it goes on the
+          # plain one: -Phadoop-cloud would ship the AWS SDK inside `pip install
+          # pyspark`. Earlier releases built it alongside the -cloud distribution.
+          - name: hadoop3
+            extra_profiles: ''
+            make_pip: true
+          - name: hadoop3-cloud
+            extra_profiles: '-Phadoop-cloud'
+            make_pip: false
+    env:
+      # In the environment, not on the command line: make-distribution.sh records
+      # its own argv in the shipped RELEASE file. -V is left out because the script
+      # parses `mvn help:evaluate` output for the version.
+      MAVEN_ARGS: -B -ntp -e
+      MAVEN_OPTS: -Xmx4g -XX:ReservedCodeCacheSize=1g -XX:MaxMetaspaceSize=2g
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+    steps:
+      # Each leg holds the reactor output, dist/ and the tarball at the same time.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install PySpark packaging dependencies
+        if: matrix.make_pip
+        run: python3 -m pip install --upgrade pip setuptools wheel
+
+      - name: Build distribution
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          ./dev/make-distribution.sh
+          --name ${{ matrix.name }} --tgz ${{ matrix.make_pip && '--pip' || '' }}
+          ${{ env.SPARK_PROFILES }} ${{ matrix.extra_profiles }}
+
+      # dist/ is an uncompressed copy of the tarball; reclaim the space now.
+      - name: Drop the uncompressed distribution
+        run: rm -rf dist
+
+      - name: Upload assets to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAKE_PIP: ${{ matrix.make_pip }}
+          DIST_NAME: ${{ matrix.name }}
+        run: |
+          set -eo pipefail
+          shopt -s nullglob
+
+          upload_single() {
+            local description="$1"
+            shift
+            if [[ $# -ne 1 ]]; then
+              echo "::error::expected exactly one $description, found $#: $*"
+              exit 1
+            fi
+            ls -l "$1"
+            if [[ -n "$RELEASE_TAG" ]]; then
+              gh release upload "$RELEASE_TAG" "$1" --clobber
+              rm -f "$1"
+            fi
+          }
+
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "No release tag: the assets are built and checked but not uploaded."
+          fi
+
+          upload_single "spark-*-bin-$DIST_NAME.tgz tarball" spark-*-bin-"$DIST_NAME".tgz
+
+          if [[ "$MAKE_PIP" == "true" ]]; then
+            upload_single "PySpark sdist" python/dist/pyspark-[0-9]*.tar.gz
+          fi
+
+  # Built with -Phadoop-cloud so it describes the reactor the Maven job deploys.
+  sbom:
+    name: "SBOM and vulnerability report"
+    needs: verify
+    if: success() && (github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish_assets))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+      packages: read
+    env:
+      MAVEN_ARGS: -B -V -e -ntp
+      MAVEN_OPTS: -Xmx4g -XX:ReservedCodeCacheSize=1g -XX:MaxMetaspaceSize=2g
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+          server-id: arenadata
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      # outputDirectory is pinned: makeAggregateBom otherwise writes next to the
+      # first module of the reactor rather than into the workspace root.
+      - name: Generate SBOM
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          ./build/mvn $MAVEN_ARGS cyclonedx:makeAggregateBom
+          $SPARK_PROFILES -Phadoop-cloud
+          -DoutputFormat=json -DoutputName=bom
+          -DoutputDirectory="$GITHUB_WORKSPACE/target"
+
+      - name: Vulnerability scan (grype)
+        uses: anchore/scan-action@v6
+        with:
+          sbom: target/bom.json
+          fail-build: false
+          output-format: json
+          output-file: vulnerability-report.json
+
+      - name: Upload the SBOM and the report to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          ls -l target/bom.json vulnerability-report.json
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "No release tag: the SBOM and the report are built but not uploaded."
+            exit 0
+          fi
+          gh release upload "$RELEASE_TAG" target/bom.json vulnerability-report.json --clobber
