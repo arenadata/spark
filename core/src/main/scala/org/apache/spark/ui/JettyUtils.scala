@@ -320,6 +320,16 @@ private[spark] object JettyUtils extends Logging {
 
       // If SSL is configured, create the secure connector first.
       val securePort = sslOptions.createJettySslContextFactory().map { factory =>
+        // SPARK-56528: Jetty's SecureRequestCustomizer enables sniHostCheck by default, and
+        // AbstractConnectionFactory.getFactories auto-injects one when none is registered.
+        // Register our own first so the check is configurable. It is disabled by default
+        // because a request that presents a TLS server name while addressing the server by IP,
+        // such as a Prometheus PodMonitor/ServiceMonitor scrape of a pod, would otherwise be
+        // rejected with "400 Host does not match SNI".
+        val secureRequestCustomizer = new SecureRequestCustomizer()
+        secureRequestCustomizer.setSniHostCheck(conf.get(UI_JETTY_SNI_HOST_CHECK))
+        httpConfig.addCustomizer(secureRequestCustomizer)
+
         val securePort = sslOptions.port.getOrElse(if (port > 0) Utils.userPort(port, 400) else 0)
         val secureServerName = if (serverName.nonEmpty) s"$serverName (HTTPS)" else serverName
         val connectionFactories = AbstractConnectionFactory.getFactories(factory,

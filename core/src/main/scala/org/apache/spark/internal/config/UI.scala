@@ -136,6 +136,17 @@ private[spark] object UI {
     .bytesConf(ByteUnit.BYTE)
     .createWithDefaultString("8k")
 
+  val UI_JETTY_SNI_HOST_CHECK = ConfigBuilder("spark.ui.jetty.sniHostCheckEnabled")
+    .internal()
+    .doc("Whether to enable Jetty's SNI host check on the Spark UI HTTPS connector. " +
+      "Spark disables the SNI host check by default, because it rejects requests that " +
+      "present a TLS server name while addressing the server by IP, such as Prometheus " +
+      "PodMonitor/ServiceMonitor scrapes, with 400 Host does not match SNI. " +
+      "Set to true to enforce SNI host checking for stricter security.")
+    .version("3.5.4")
+    .booleanConf
+    .createWithDefault(false)
+
   val UI_TIMELINE_ENABLED = ConfigBuilder("spark.ui.timelineEnabled")
     .doc("Whether to display event timeline data on UI pages.")
     .version("3.4.0")
