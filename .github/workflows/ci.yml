@@ -399,6 +399,8 @@ jobs:
           ./build/mvn ${{ env.MAVEN_ARGS }} install -DskipTests
           -pl :spark-kubernetes-integration-tests_2.13 -am
           ${{ env.SPARK_PROFILES }} -Pkubernetes-integration-tests -Psparkr
+          -Dspark.kubernetes.test.imageRepo=docker.io/library
+          -Dspark.kubernetes.test.imageTag=ci-test
 
       - name: Run k8s integration tests
         env:
