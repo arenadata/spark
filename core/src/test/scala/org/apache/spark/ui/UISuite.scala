@@ -25,6 +25,7 @@ import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 
 import scala.io.Source
 
+import org.eclipse.jetty.server.{HttpConnectionFactory, SecureRequestCustomizer}
 import org.eclipse.jetty.servlet.{ServletContextHandler, ServletHolder}
 import org.eclipse.jetty.util.thread.QueuedThreadPool
 import org.mockito.Mockito.{mock, when}
@@ -181,6 +182,37 @@ class UISuite extends SparkFunSuite {
     } finally {
       stopServer(serverInfo)
       closeSocket(socket)
+    }
+  }
+
+  test("SPARK-56528: Jetty SNI host check is configurable and disabled by default") {
+    Seq(false, true).foreach { sniHostCheck =>
+      var serverInfo: ServerInfo = null
+      try {
+        val (conf, _, sslOptions) = sslEnabledConf()
+        conf.set(UI.UI_JETTY_SNI_HOST_CHECK, sniHostCheck)
+        serverInfo = JettyUtils.startJettyServer("0.0.0.0", 0, sslOptions, conf)
+        assert(serverInfo.securePort.isDefined)
+
+        val connector = serverInfo.server.getConnectors
+          .find(_.getName == JettyUtils.SPARK_CONNECTOR_NAME)
+          .getOrElse(fail("secure connector not found"))
+        val httpConfig = connector.getConnectionFactory(classOf[HttpConnectionFactory])
+          .getHttpConfiguration
+
+        // The customizer must be registered rather than suppressed, so that the X509 and SSL
+        // session request attributes are still populated. Exactly one is expected: ours, and
+        // not an extra one auto-injected by AbstractConnectionFactory.getFactories, which
+        // would default sniHostCheck to true.
+        val secureCustomizers = httpConfig.getCustomizers.stream()
+          .filter(_.isInstanceOf[SecureRequestCustomizer]).count()
+        assert(secureCustomizers === 1L)
+        val customizer = httpConfig.getCustomizer(classOf[SecureRequestCustomizer])
+        assert(customizer != null)
+        assert(customizer.isSniHostCheck === sniHostCheck)
+      } finally {
+        stopServer(serverInfo)
+      }
     }
   }
 
