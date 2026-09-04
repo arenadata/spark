@@ -367,6 +367,11 @@ jobs:
         uses: medyagh/setup-minikube@e9e035a86bbc3caea26a450bd4dbf9d0c453682e # v0.0.21
         with:
           kubernetes-version: "1.36.0"
+          # minikube 1.39.0 switched the default runtime to containerd, which makes
+          # "minikube docker-env" an experimental Docker API shim. buildx then falls back
+          # from the docker driver to docker-container and fails booting moby/buildkit,
+          # breaking the image build that setup-integration-test-env.sh runs with -m.
+          container-runtime: docker
           # GitHub Actions limit 4C/16G, limit to 2C/6G for better resource statistic
           # https://docs.github.com/en/actions/reference/runners/github-hosted-runners#standard-github-hosted-runners-for-public-repositories
           cpus: 2
