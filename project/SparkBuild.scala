@@ -1274,6 +1274,8 @@ object DependencyOverrides {
         SbtPomKeys.effectivePom.value.getProperties.get("gson.version").asInstanceOf[String]
       val jlineVersion =
         SbtPomKeys.effectivePom.value.getProperties.get("jline.version").asInstanceOf[String]
+      val jline3Version =
+        SbtPomKeys.effectivePom.value.getProperties.get("jline3.version").asInstanceOf[String]
       val avroVersion =
         SbtPomKeys.effectivePom.value.getProperties.get("avro.version").asInstanceOf[String]
       val slf4jVersion =
@@ -1284,6 +1286,9 @@ object DependencyOverrides {
         "com.google.guava" % "guava" % guavaVersion,
         "com.google.code.gson" % "gson" % gsonVersion,
         "jline" % "jline" % jlineVersion,
+        // Pulled in transitively by scala-compiler with the "jdk8" classifier; the
+        // override forces the version only, the classifier comes from that declaration.
+        "org.jline" % "jline" % jline3Version,
         "org.apache.avro" % "avro" % avroVersion,
         "org.slf4j" % "slf4j-api" % slf4jVersion,
         "org.tukaani" % "xz" % xzVersion,
@@ -1307,6 +1312,11 @@ object ExcludedDependencies {
       ExclusionRule("javax.servlet", "javax.servlet-api"),
       ExclusionRule("io.netty", "netty-codec-protobuf"),
       ExclusionRule("io.netty", "netty-codec-marshalling"),
+      // parquet-column 1.18.0 declares the JUnit 4-to-5 migration set at test scope, and
+      // sbt maps our "tests" classifier dependency on it as test->test, so those land on
+      // our test classpath. junit:junit is excluded just below, which leaves
+      // junit-vintage-engine unable to run and fails test discovery for the whole module.
+      ExclusionRule("org.junit.vintage", "junit-vintage-engine"),
       ExclusionRule("junit", "junit"))
   )
 }
