@@ -163,11 +163,23 @@
     <avro.version>1.12.1</avro.version>
     <aws.kinesis.client.version>2.7.2</aws.kinesis.client.version>
     <!-- Should be consistent with Kinesis client dependency -->
-    <aws.java.sdk.v2.version>2.35.4</aws.java.sdk.v2.version>
+    <!--
+      Keep at 2.41.30 or later for the CloudFront signing fix (GHSA-443w-3rq3-5m5h), and at
+      a release whose bundled netty is 4.1.136 or later: the uber-jar carries its own netty
+      relocated under software.amazon.awssdk.thirdparty, which netty.version cannot reach.
+    -->
+    <aws.java.sdk.v2.version>2.54.12</aws.java.sdk.v2.version>
     <!-- the producer is used in tests -->
     <aws.kinesis.producer.version>1.0.6</aws.kinesis.producer.version>
-    <!-- Do not use 3.0.0: https://github.com/GoogleCloudDataproc/hadoop-connectors/issues/1114 -->
-    <gcs-connector.version>hadoop3-2.2.31</gcs-connector.version>
+    <!--
+      Do not use 3.0.0, it shipped a vulnerable shaded guava:
+      https://github.com/GoogleCloudDataproc/hadoop-connectors/issues/1114
+      The hadoop3-2.2.x line is frozen on a shaded jackson-core 2.13.4 and carries
+      GHSA-r7wm-3cxj-wff9 and GHSA-h46c-h94j-95f3. From 3.1.x the shaded jar bundles no
+      jackson at all and takes it from the platform classpath, where Spark provides a
+      patched jackson-core. Guava there is 33.1.0-jre, the same as in 2.2.31.
+    -->
+    <gcs-connector.version>3.1.18</gcs-connector.version>
     <analyticsaccelerator-s3.version>1.3.1</analyticsaccelerator-s3.version>
     <!--  org.apache.httpcomponents/httpclient-->
     <commons.httpclient.version>4.5.14</commons.httpclient.version>
@@ -294,7 +306,6 @@
     -->
     <derby.deps.scope>compile</derby.deps.scope>
     <hadoop.deps.scope>compile</hadoop.deps.scope>
-    <huaweicloud.deps.scope>compile</huaweicloud.deps.scope>
     <hive.deps.scope>compile</hive.deps.scope>
     <hive.storage.version>2.8.1</hive.storage.version>
     <hive.storage.scope>compile</hive.storage.scope>
@@ -3678,7 +3689,6 @@
       <id>hadoop-provided</id>
       <properties>
         <spark.yarn.isHadoopProvided>true</spark.yarn.isHadoopProvided>
-        <huaweicloud.deps.scope>provided</huaweicloud.deps.scope>
       </properties>
     </profile>
     <profile>
