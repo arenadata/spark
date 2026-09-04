@@ -317,8 +317,11 @@
     </extraJavaTestArgs>
   </properties>
   <distributionManagement>
+    <!-- Shares the id of the `arenadata` <repositories> entry below on purpose:
+         GitHub Packages needs credentials for reads as well as for deploys, and
+         a single id lets one <server> in settings.xml cover both. -->
     <repository>
-      <id>github</id>
+      <id>arenadata</id>
       <name>GitHub arenadata Apache Maven Packages</name>
       <url>https://maven.pkg.github.com/arenadata/spark</url>
     </repository>

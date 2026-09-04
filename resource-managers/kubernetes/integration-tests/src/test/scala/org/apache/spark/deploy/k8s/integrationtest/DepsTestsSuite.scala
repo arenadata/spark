@@ -26,8 +26,8 @@ import scala.collection.JavaConverters._
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.s3.AmazonS3Client
 import io.fabric8.kubernetes.api.model._
-import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder
 import io.fabric8.kubernetes.api.model.SecretBuilder
+import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder
 import org.apache.commons.codec.binary.Base64
 import org.apache.hadoop.util.VersionInfo
 import org.scalatest.concurrent.{Eventually, PatienceConfiguration}
@@ -420,7 +420,7 @@ private[spark] trait DepsTestsSuite { k8sSuite: KubernetesSuite =>
       .set("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
       .set("spark.jars.packages", packages)
       .set("spark.jars.ivySettings", sparkHomeDir.resolve("dev/ivysettings.xml").toString)
-      .set("spark.kubernetes.driver.secrets."+ivySecretName, sparkHomeDir.resolve("dev").toString)
+      .set("spark.kubernetes.driver.secrets." + ivySecretName, sparkHomeDir.resolve("dev").toString)
       .set("spark.driver.extraJavaOptions", "-Divy.cache.dir=/tmp -Divy.home=/tmp")
   }
 
