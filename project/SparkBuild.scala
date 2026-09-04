@@ -1312,6 +1312,11 @@ object ExcludedDependencies {
       ExclusionRule("javax.servlet", "javax.servlet-api"),
       ExclusionRule("io.netty", "netty-codec-protobuf"),
       ExclusionRule("io.netty", "netty-codec-marshalling"),
+      // parquet-column 1.18.0 declares the JUnit 4-to-5 migration set at test scope, and
+      // sbt maps our "tests" classifier dependency on it as test->test, so those land on
+      // our test classpath. junit:junit is excluded just below, which leaves
+      // junit-vintage-engine unable to run and fails test discovery for the whole module.
+      ExclusionRule("org.junit.vintage", "junit-vintage-engine"),
       ExclusionRule("junit", "junit"))
   )
 }
