@@ -1116,6 +1116,8 @@ object DependencyOverrides {
     dependencyOverrides += "com.google.guava" % "guava" % guavaVersion,
     dependencyOverrides += "xerces" % "xercesImpl" % "2.12.2",
     dependencyOverrides += "jline" % "jline" % "2.14.6",
+    // Pulled in transitively by scala-compiler; keep in sync with jline3.version in pom.xml.
+    dependencyOverrides += "org.jline" % "jline" % "3.30.16",
     dependencyOverrides += "org.apache.avro" % "avro" % "1.11.5")
 }
 
