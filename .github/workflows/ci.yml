@@ -17,7 +17,7 @@ env:
   MAVEN_OPTS: -Xmx4g -XX:ReservedCodeCacheSize=1g -XX:MaxMetaspaceSize=2g
   SPARK_LOCAL_IP: localhost
   SPARK_LOCAL_HOSTNAME: localhost
-  # -Pmesos dropped on purpose: the Mesos backend is deprecated in 3.5 and removed in 4.0,
+  # -Pmesos dropped on purpose: the Mesos backend is deprecated in 3.5 and removed in 4.0
   SPARK_PROFILES: -Pscala-2.13 -Phadoop-3 -Phive -Phive-thriftserver -Pyarn -Pkubernetes -Phadoop-cloud -Pconnect
 
 jobs:
@@ -81,12 +81,15 @@ jobs:
           -pl ${{ matrix.modules }} -am
           ${{ env.SPARK_PROFILES }}
 
-      - name: Provide plain hive-exec.jar for IsolatedClientLoader
+      - name: Provide additional artifacts for IsolatedClientLoader
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
         run: |
-          d="$HOME/.m2/repository/org/apache/hive/hive-exec/2.3.10.2-4.3.0-0"
-          if [[ -f "$d/hive-exec-2.3.10.2-4.3.0-0-core.jar" && ! -f "$d/hive-exec-2.3.10.2-4.3.0-0.jar" ]]; then
-            cp "$d/hive-exec-2.3.10.2-4.3.0-0-core.jar" "$d/hive-exec-2.3.10.2-4.3.0-0.jar"
-          fi
+          v=$(sed -n 's|^ *<hive\.version>\(.*\)</hive\.version>.*|\1|p' pom.xml | head -1)
+          ./build/mvn ${{ env.MAVEN_ARGS }} dependency:get \
+            -Dartifact="org.apache.hive:hive-exec:$v" \
+            -Dmaven.wagon.http.retryHandler.count=3
 
       - name: Run tests
         env:

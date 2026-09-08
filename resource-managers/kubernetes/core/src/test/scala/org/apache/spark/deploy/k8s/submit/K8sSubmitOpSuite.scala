@@ -24,6 +24,7 @@ import scala.collection.JavaConverters._
 import io.fabric8.kubernetes.api.model._
 import io.fabric8.kubernetes.client.{KubernetesClient, PropagationPolicyConfigurable}
 import io.fabric8.kubernetes.client.dsl.{Deletable, NamespaceListVisitFromServerGetDeleteRecreateWaitApplicable, PodResource}
+import io.fabric8.kubernetes.client.jdkhttp.JdkHttpClientImpl
 import org.mockito.{ArgumentMatchers, Mock, MockitoAnnotations}
 import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.BeforeAndAfter
@@ -32,6 +33,8 @@ import org.apache.spark.{SparkConf, SparkFunSuite}
 import org.apache.spark.deploy.k8s.Config.KUBERNETES_SUBMIT_GRACE_PERIOD
 import org.apache.spark.deploy.k8s.Constants.{SPARK_APP_ID_LABEL, SPARK_POD_DRIVER_ROLE, SPARK_ROLE_LABEL}
 import org.apache.spark.deploy.k8s.Fabric8Aliases.{PODS, PODS_WITH_NAMESPACE}
+import org.apache.spark.deploy.k8s.SparkKubernetesClientFactory
+import org.apache.spark.deploy.k8s.SparkKubernetesClientFactory.ClientType
 import org.apache.spark.scheduler.cluster.k8s.ExecutorLifecycleTestUtils.TEST_SPARK_APP_ID
 
 
@@ -131,6 +134,20 @@ class K8sSubmitOpSuite extends SparkFunSuite with BeforeAndAfter {
     verify(err).println(ArgumentMatchers.eq(s"Deleting driver pod: $driverPodName1."))
     verify(err).println(ArgumentMatchers.eq(s"Deleting driver pod: $driverPodName2."))
     // scalastyle:on
+  }
+
+  test("Init kubernetes client") {
+    // transport is now picked through the ServiceLoader, so pin down which
+    // implementation the build ships. It must not be the okhttp one, which drags in
+    // okhttp 3.12.12 (GHSA-3cqm-mf7h-prrj).
+    val kubeClient = SparkKubernetesClientFactory.createKubernetesClient(
+      "master",
+      None,
+      "",
+      ClientType.Driver,
+      new SparkConf(false),
+      None)
+    assert(kubeClient.getHttpClient.isInstanceOf[JdkHttpClientImpl])
   }
 
   private def buildDriverPod(podName: String, id: String): Pod = {

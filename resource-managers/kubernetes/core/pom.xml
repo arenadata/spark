@@ -48,6 +48,12 @@
           <groupId>io.fabric8</groupId>
           <artifactId>volcano-client</artifactId>
           <version>${kubernetes-client.version}</version>
+          <exclusions>
+            <exclusion>
+              <groupId>io.fabric8</groupId>
+              <artifactId>kubernetes-httpclient-okhttp</artifactId>
+            </exclusion>
+          </exclusions>
         </dependency>
       </dependencies>
     </profile>
@@ -75,9 +81,17 @@
       <scope>test</scope>
     </dependency>
 
+    <!--
+      fabric8 okhttp transport pins okhttp 3.12.12, which carries
+      GHSA-3cqm-mf7h-prrj (fixed only in okhttp 4.9.2), and it cannot be moved onto the
+      4.x line: io.fabric8.kubernetes.client.okhttp.OkHttpClientImpl reads
+      okhttp3.internal.Internal.instance and uses okio.Okio, neither of which survives in
+      okhttp 4 / okio 3. The JDK transport (java.net.http) has no third-party dependencies,
+      so it drops okhttp and okio from the distribution altogether.
+    -->
     <dependency>
       <groupId>io.fabric8</groupId>
-      <artifactId>kubernetes-httpclient-okhttp</artifactId>
+      <artifactId>kubernetes-httpclient-jdk</artifactId>
       <version>${kubernetes-client.version}</version>
     </dependency>
     <dependency>
@@ -85,6 +99,11 @@
       <artifactId>kubernetes-client</artifactId>
       <version>${kubernetes-client.version}</version>
       <exclusions>
+        <!-- kubernetes-client asks for the okhttp transport at runtime scope. -->
+        <exclusion>
+          <groupId>io.fabric8</groupId>
+          <artifactId>kubernetes-httpclient-okhttp</artifactId>
+        </exclusion>
         <exclusion>
           <groupId>com.fasterxml.jackson.core</groupId>
           <artifactId>*</artifactId>
