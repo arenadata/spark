@@ -87,8 +87,13 @@ jobs:
           GITHUB_USERNAME: ${{ github.actor }}
         run: |
           v=$(sed -n 's|^ *<hive\.version>\(.*\)</hive\.version>.*|\1|p' pom.xml | head -1)
+          d="$HOME/.m2/repository/org/apache/hive/hive-exec/$v"
+          if [[ -f "$d/hive-exec-$v-core.jar" && ! -f "$d/hive-exec-$v.jar" ]]; then
+            cp "$d/hive-exec-$v-core.jar" "$d/hive-exec-$v.jar"
+          fi
           ./build/mvn ${{ env.MAVEN_ARGS }} dependency:get \
-            -Dartifact="org.apache.hive:hive-exec:$v" \
+            -Dartifact="org.apache.hive:hive-llap-tez:$v" \
+            -Dtransitive=false \
             -Dmaven.wagon.http.retryHandler.count=3
 
       - name: Run tests
