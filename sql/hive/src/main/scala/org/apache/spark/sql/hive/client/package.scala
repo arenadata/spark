@@ -71,7 +71,7 @@ package object client {
         "org.apache.hive:hive-vector-code-gen"))
 
     case object v2_3_arenadata extends HiveVersion("2.3.10",
-      exclusions = v2_3.exclusions,
+      exclusions = v2_3.exclusions :+ "org.apache.hive:hive-llap-tez",
       mavenVersionOverride = Some("2.3.10.3-4.4.0-2"))
 
     // Since Hive 3.0, HookUtils uses org.apache.logging.log4j.util.Strings
