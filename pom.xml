@@ -246,7 +246,7 @@
       Pin it to 3.x version carrying fixes for CVEs.
       Keep in sync with dependencyOverrides in SparkBuild.scala.
     -->
-    <jline3.version>3.30.14</jline3.version>
+    <jline3.version>3.30.16</jline3.version>
     <!--
       SPARK-50299: When updating `sbt-jupiter-interface.version`,
       also need to update the version in `SparkBuild.scala` and `plugins.sbt`.
