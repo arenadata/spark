@@ -89,7 +89,6 @@ jobs:
           v=$(sed -n 's|^ *<hive\.version>\(.*\)</hive\.version>.*|\1|p' pom.xml | head -1)
           ./build/mvn ${{ env.MAVEN_ARGS }} dependency:get \
             -Dartifact="org.apache.hive:hive-exec:$v" \
-            -Dtransitive=false \
             -Dmaven.wagon.http.retryHandler.count=3
 
       - name: Run tests
