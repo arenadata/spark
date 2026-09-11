@@ -170,6 +170,19 @@
           <groupId>org.apache.hadoop</groupId>
           <artifactId>hadoop-cos</artifactId>
         </exclusion>
+        <!--
+          Huawei OBS and Aliyun OSS are not supported, so neither connector is shipped.
+          Dropping them also drops esdk-obs-java (okhttp, okio) and aliyun-java-sdk-core
+          (ini4j, org.jacoco.agent), none of which have upstream fixes for their CVEs.
+        -->
+        <exclusion>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-huaweicloud</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-aliyun</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
     <!--
