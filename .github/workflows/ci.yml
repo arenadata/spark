@@ -90,7 +90,7 @@ jobs:
           ./build/mvn ${{ env.MAVEN_ARGS }} dependency:get \
             -Dartifact="org.apache.hive:hive-exec:$v" \
             -Dtransitive=false \
-            -Dmaven.wagon.http.retryHandler.count=3
+            -Daether.connector.http.retryHandler.count=5
 
       - name: Run tests
         env:
