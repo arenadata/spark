@@ -63,12 +63,13 @@
     </chain>
   </resolvers>
 
+  <!-- Match Arenadata revision (2.3.10.3-4.4.0-2), plain upstream revisions stay on the default chain. -->
   <modules>
-    <module organisation="org.apache.hive"      revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
-    <module organisation="org.apache.hive.hcatalog" revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
-    <module organisation="org.apache.hadoop"    revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
-    <module organisation="org.apache.zookeeper" revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
-    <module organisation="org.apache.curator"   revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
-    <module organisation="org.apache.hbase"     revision="*-4.3.0-*" matcher="glob" resolver="arenadata"/>
+    <module organisation="org.apache.hive"          revision=".*-\d+\.\d+\.\d+-\d+" matcher="regexp" resolver="arenadata"/>
+    <module organisation="org.apache.hive.hcatalog" revision=".*-\d+\.\d+\.\d+-\d+" matcher="regexp" resolver="arenadata"/>
+    <module organisation="org.apache.hadoop"        revision=".*-\d+\.\d+\.\d+-\d+" matcher="regexp" resolver="arenadata"/>
+    <module organisation="org.apache.zookeeper"     revision=".*-\d+\.\d+\.\d+-\d+" matcher="regexp" resolver="arenadata"/>
+    <module organisation="org.apache.curator"       revision=".*-\d+\.\d+\.\d+-\d+" matcher="regexp" resolver="arenadata"/>
+    <module organisation="org.apache.hbase"         revision=".*-\d+\.\d+\.\d+-\d+" matcher="regexp" resolver="arenadata"/>
   </modules>
 </ivysettings>
