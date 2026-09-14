@@ -17,7 +17,8 @@ env:
   MAVEN_OPTS: -Xmx4g -XX:ReservedCodeCacheSize=1g -XX:MaxMetaspaceSize=2g
   SPARK_LOCAL_IP: localhost
   SPARK_LOCAL_HOSTNAME: localhost
-  SPARK_PROFILES: -Pscala-2.13 -Phadoop-3 -Phive -Phive-thriftserver -Pyarn -Pmesos -Pkubernetes -Phadoop-cloud -Pconnect
+  # -Pmesos dropped on purpose: the Mesos backend is deprecated in 3.5 and removed in 4.0
+  SPARK_PROFILES: -Pscala-2.13 -Phadoop-3 -Phive -Phive-thriftserver -Pyarn -Pkubernetes -Phadoop-cloud -Pconnect
 
 jobs:
   build:
@@ -43,9 +44,9 @@ jobs:
           - name: "hive"
             slug: "hive"
             modules: ":spark-hive_2.13"
-          - name: "streaming / mllib / yarn / mesos / k8s / connect / protobuf / kafka / avro"
-            slug: "streaming-mllib-yarn-mesos-k8s-connect-protobuf-kafka-avro"
-            modules: ":spark-streaming_2.13,:spark-sql-kafka-0-10_2.13,:spark-streaming-kafka-0-10_2.13,:spark-token-provider-kafka-0-10_2.13,:spark-mllib-local_2.13,:spark-mllib_2.13,:spark-yarn_2.13,:spark-mesos_2.13,:spark-kubernetes_2.13,:spark-hadoop-cloud_2.13,:spark-connect_2.13,:spark-connect-common_2.13,:spark-connect-client-jvm_2.13,:spark-protobuf_2.13,:spark-avro_2.13,:spark-assembly_2.13"
+          - name: "streaming / mllib / yarn / k8s / connect / protobuf / kafka / avro"
+            slug: "streaming-mllib-yarn-k8s-connect-protobuf-kafka-avro"
+            modules: ":spark-streaming_2.13,:spark-sql-kafka-0-10_2.13,:spark-streaming-kafka-0-10_2.13,:spark-token-provider-kafka-0-10_2.13,:spark-mllib-local_2.13,:spark-mllib_2.13,:spark-yarn_2.13,:spark-kubernetes_2.13,:spark-hadoop-cloud_2.13,:spark-connect_2.13,:spark-connect-common_2.13,:spark-connect-client-jvm_2.13,:spark-protobuf_2.13,:spark-avro_2.13,:spark-assembly_2.13"
             extra: -Dtest.exclude.tags=org.apache.spark.tags.AmmoniteTest
     steps:
       - uses: actions/checkout@v4
@@ -80,12 +81,16 @@ jobs:
           -pl ${{ matrix.modules }} -am
           ${{ env.SPARK_PROFILES }}
 
-      - name: Provide plain hive-exec.jar for IsolatedClientLoader
+      - name: Provide additional artifacts for IsolatedClientLoader
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.actor }}
         run: |
-          d="$HOME/.m2/repository/org/apache/hive/hive-exec/2.3.10.2-4.3.0-0"
-          if [[ -f "$d/hive-exec-2.3.10.2-4.3.0-0-core.jar" && ! -f "$d/hive-exec-2.3.10.2-4.3.0-0.jar" ]]; then
-            cp "$d/hive-exec-2.3.10.2-4.3.0-0-core.jar" "$d/hive-exec-2.3.10.2-4.3.0-0.jar"
-          fi
+          v=$(sed -n 's|^ *<hive\.version>\(.*\)</hive\.version>.*|\1|p' pom.xml | head -1)
+          ./build/mvn ${{ env.MAVEN_ARGS }} dependency:get \
+            -Dartifact="org.apache.hive:hive-exec:$v" \
+            -Dtransitive=false \
+            -Daether.connector.http.retryHandler.count=5
 
       - name: Run tests
         env:

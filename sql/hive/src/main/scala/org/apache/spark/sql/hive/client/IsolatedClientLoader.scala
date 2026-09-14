@@ -88,8 +88,7 @@ private[hive] object IsolatedClientLoader extends Logging {
   }
 
   def hiveVersion(version: String): HiveVersion = {
-    if (version == hive.v2_3_arenadata.mavenVersion ||
-        version == "2.3.10_arenadata1") {
+    if (version == hive.v2_3_arenadata.mavenVersion) {
       return hive.v2_3_arenadata
     }
 
