@@ -141,7 +141,17 @@
     <kafka.version>3.4.1</kafka.version>
     <!-- After 10.15.1.3, the minimum required version is JDK9 -->
     <derby.version>10.14.2.0</derby.version>
-    <parquet.version>1.18.1</parquet.version>
+    <parquet.version>1.17.1</parquet.version>
+    <!--
+      Keep parquet on the 1.17 line: 1.18.0 changed the default column order of FLOAT and
+      DOUBLE to IEEE_754_TOTAL_ORDER, which readers older than 1.18 ignore, so they lose row
+      group and page pruning on those columns.
+      parquet-jackson 1.17.1 shades jackson 2.21.3, which is vulnerable to GHSA-j3rv-43j4-c7qm
+      and GHSA-r7wm-3cxj-wff9 (both fixed in 2.21.4). The 1.18.1 artifact shades 2.22.2, uses
+      the same shaded/parquet/com/fasterxml/jackson relocation prefix, and parquet 1.17.1 only
+      references 7 classes of it, so it is a drop-in replacement.
+    -->
+    <parquet.jackson.version>1.18.1</parquet.jackson.version>
     <orc.version>1.9.8</orc.version>
     <orc.classifier>shaded-protobuf</orc.classifier>
     <jetty.version>9.4.58.1</jetty.version>
@@ -2763,6 +2773,12 @@
         <artifactId>parquet-avro</artifactId>
         <version>${parquet.version}</version>
         <scope>${parquet.test.deps.scope}</scope>
+      </dependency>
+      <!-- Pinned ahead of ${parquet.version}, see the parquet.jackson.version comment above. -->
+      <dependency>
+        <groupId>org.apache.parquet</groupId>
+        <artifactId>parquet-jackson</artifactId>
+        <version>${parquet.jackson.version}</version>
       </dependency>
       <dependency>
         <groupId>org.codehaus.janino</groupId>
