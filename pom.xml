@@ -210,9 +210,11 @@
     <netlib.ludovic.dev.version>3.0.3</netlib.ludovic.dev.version>
     <commons-codec.version>1.18.0</commons-codec.version>
     <commons-compress.version>1.27.1</commons-compress.version>
-    <commons-io.version>2.19.0</commons-io.version>
-    <!-- org.apache.commons/commons-lang3/-->
-    <commons-lang3.version>3.17.0</commons-lang3.version>
+    <commons-io.version>2.22.0</commons-io.version>
+    <!-- org.apache.commons/commons-lang3/
+         Keep at 3.18.0 or later: the commons-configuration2 that Ozone puts on the
+         classpath calls ObjectUtils.getIfNull(T, T), which older versions lack. -->
+    <commons-lang3.version>3.20.0</commons-lang3.version>
     <!-- org.apache.commons/commons-pool2/-->
     <commons-pool2.version>2.11.1</commons-pool2.version>
     <datanucleus-core.version>4.1.17</datanucleus-core.version>
