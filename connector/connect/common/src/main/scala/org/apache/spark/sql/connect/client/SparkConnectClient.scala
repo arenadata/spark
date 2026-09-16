@@ -302,7 +302,8 @@ private[sql] class SparkConnectClient(
    * Releases the session on the server side
    */
   private[sql] def releaseSession(): proto.ReleaseSessionResponse = {
-    val request = proto.ReleaseSessionRequest.newBuilder()
+    val request = proto.ReleaseSessionRequest
+      .newBuilder()
       .setSessionId(sessionId)
       .setUserContext(userContext)
       .setClientType(userAgent)
