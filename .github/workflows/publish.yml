@@ -224,13 +224,22 @@ jobs:
         if: matrix.make_pip
         run: python3 -m pip install --upgrade pip setuptools wheel
 
+      - name: Install R
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            r-base r-base-dev pandoc qpdf \
+            r-cran-knitr r-cran-rmarkdown \
+            r-cran-devtools r-cran-roxygen2
+
       - name: Build distribution
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NO_MANUAL: 1
         run: >-
           ./dev/make-distribution.sh
-          --name ${{ matrix.name }} --tgz ${{ matrix.make_pip && '--pip' || '' }}
-          ${{ env.SPARK_PROFILES }} ${{ matrix.extra_profiles }}
+          --name ${{ matrix.name }} --tgz --r ${{ matrix.make_pip && '--pip' || '' }}
+          ${{ env.SPARK_PROFILES }} -Psparkr ${{ matrix.extra_profiles }}
 
       # dist/ is an uncompressed copy of the tarball; reclaim the space now.
       - name: Drop the uncompressed distribution
