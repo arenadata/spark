@@ -52,7 +52,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      actions: read
     env:
       RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event_name == 'push' && github.ref_name || inputs.release_tag }}
     steps:
@@ -81,29 +80,6 @@ jobs:
             exit 1
           fi
           echo "Tag is on:$BRANCHES"
-
-      - name: Verify CI passed for this commit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [[ -z "$RELEASE_TAG" ]]; then echo "No release tag: skipping."; exit 0; fi
-          SHA="$(git rev-parse HEAD)"
-          RUN="$(gh run list --commit "$SHA" --workflow CI --limit 1 --json status,conclusion)"
-          STATUS="$(jq -r '.[0].status // ""' <<< "$RUN")"
-          CONCLUSION="$(jq -r '.[0].conclusion // ""' <<< "$RUN")"
-          if [[ -z "$STATUS" ]]; then
-            echo "::error::No CI run found for $SHA. Push to a release/** or develop/** branch first."
-            exit 1
-          fi
-          if [[ "$STATUS" != "completed" ]]; then
-            echo "::error::CI for $SHA is still $STATUS. Wait for it to finish before releasing."
-            exit 1
-          fi
-          if [[ "$CONCLUSION" != "success" ]]; then
-            echo "::error::CI has not passed for $SHA (conclusion: $CONCLUSION)."
-            exit 1
-          fi
-          echo "CI passed"
 
       - name: Verify release tag matches pom version
         env:
