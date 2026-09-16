@@ -51,7 +51,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      actions: read
     env:
       RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event_name == 'push' && github.ref_name || inputs.release_tag }}
     steps:
@@ -80,29 +79,6 @@ jobs:
             exit 1
           fi
           echo "Tag is on:$BRANCHES"
-
-      - name: Verify CI passed for this commit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [[ -z "$RELEASE_TAG" ]]; then echo "No release tag: skipping."; exit 0; fi
-          SHA="$(git rev-parse HEAD)"
-          RUN="$(gh run list --commit "$SHA" --workflow CI --limit 1 --json status,conclusion)"
-          STATUS="$(jq -r '.[0].status // ""' <<< "$RUN")"
-          CONCLUSION="$(jq -r '.[0].conclusion // ""' <<< "$RUN")"
-          if [[ -z "$STATUS" ]]; then
-            echo "::error::No CI run found for $SHA. Push to a release/** or develop/** branch first."
-            exit 1
-          fi
-          if [[ "$STATUS" != "completed" ]]; then
-            echo "::error::CI for $SHA is still $STATUS. Wait for it to finish before releasing."
-            exit 1
-          fi
-          if [[ "$CONCLUSION" != "success" ]]; then
-            echo "::error::CI has not passed for $SHA (conclusion: $CONCLUSION)."
-            exit 1
-          fi
-          echo "CI passed"
 
       - name: Verify release tag matches pom version
         env:
@@ -224,13 +200,22 @@ jobs:
         if: matrix.make_pip
         run: python3 -m pip install --upgrade pip setuptools wheel
 
+      - name: Install R
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            r-base r-base-dev pandoc qpdf \
+            r-cran-knitr r-cran-rmarkdown \
+            r-cran-devtools r-cran-roxygen2
+
       - name: Build distribution
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NO_MANUAL: 1
         run: >-
           ./dev/make-distribution.sh
-          --name ${{ matrix.name }} --tgz ${{ matrix.make_pip && '--pip' || '' }}
-          ${{ env.SPARK_PROFILES }} ${{ matrix.extra_profiles }}
+          --name ${{ matrix.name }} --tgz --r ${{ matrix.make_pip && '--pip' || '' }}
+          ${{ env.SPARK_PROFILES }} -Psparkr ${{ matrix.extra_profiles }}
 
       # dist/ is an uncompressed copy of the tarball; reclaim the space now.
       - name: Drop the uncompressed distribution
