@@ -1,0 +1,40 @@
+name: Restore Spark build
+description: >-
+  Restore the Spark artifacts produced by the build-spark job: the installed Maven artifacts
+  (jars and test-jars) and, optionally, the git-ignored build output of the source tree
+  (target directories, R/lib, python/lib/pyspark.zip).
+inputs:
+  build-output:
+    description: Also restore the build output into the workspace.
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: spark-m2
+        path: ${{ runner.temp }}
+
+    # Remove Spark artifacts restored by the setup-java Maven cache first: the version is not a
+    # SNAPSHOT, so stale jars from an earlier run would otherwise shadow the fresh build.
+    - name: Install Spark artifacts into the local Maven repository
+      shell: bash
+      run: |
+        rm -rf ~/.m2/repository/org/apache/spark
+        mkdir -p ~/.m2/repository
+        tar -I zstd -C ~/.m2/repository -xf "$RUNNER_TEMP/spark-m2.tar.zst"
+        rm "$RUNNER_TEMP/spark-m2.tar.zst"
+
+    - if: inputs.build-output == 'true'
+      uses: actions/download-artifact@v4
+      with:
+        name: spark-build-output
+        path: ${{ runner.temp }}
+
+    - if: inputs.build-output == 'true'
+      name: Extract build output into the workspace
+      shell: bash
+      run: |
+        tar -I zstd -C "$GITHUB_WORKSPACE" -xf "$RUNNER_TEMP/spark-build-output.tar.zst"
+        rm "$RUNNER_TEMP/spark-build-output.tar.zst"
