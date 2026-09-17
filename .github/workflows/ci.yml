@@ -221,6 +221,9 @@ jobs:
       - name: Install PySpark dependencies
         run: |
           python3 -m pip install --upgrade pip
+          # CPU-only wheels; the PyPI torch pulls in several GB of CUDA libraries.
+          python3 -m pip install --index-url https://download.pytorch.org/whl/cpu \
+            'torch==2.5.1' 'torchvision==0.20.1'
           python3 -m pip install \
             'numpy==1.26.4' 'pyarrow==18.0.0' 'pandas==2.2.0' 'scipy' \
             'unittest-xml-reporting' 'coverage' \
@@ -229,7 +232,7 @@ jobs:
             'protobuf==6.33.5' 'googleapis-common-protos==1.71.0' \
             'graphviz>=0.20' 'openpyxl' \
             'scikit-learn==1.1.*' 'mlflow==3.12.0' \
-            'torch==2.5.1' 'torchvision==0.20.1' 'torcheval' \
+            'torcheval' \
             'zstandard==0.25.0'
 
       - name: Build Spark (full reactor including assembly)
