@@ -291,7 +291,8 @@ jobs:
             r-base r-base-dev pandoc qpdf libcurl4-openssl-dev libssl-dev libxml2-dev \
             r-cran-knitr r-cran-rmarkdown r-cran-devtools r-cran-testthat \
             r-cran-survival r-cran-e1071 r-cran-roxygen2
-          sudo Rscript -e "install.packages('arrow', repos='https://cloud.r-project.org/')"
+          # Posit Package Manager serves a prebuilt binary only when the R user agent is set.
+          sudo Rscript -e "options(HTTPUserAgent = sprintf('R/%s R (%s)', getRversion(), paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os))); install.packages('arrow', repos='https://p3m.dev/cran/__linux__/noble/latest')"
 
       - name: Build Spark (full reactor including assembly)
         env:
