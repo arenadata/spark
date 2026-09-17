@@ -20,6 +20,42 @@ env:
   SPARK_PROFILES: -Pscala-2.13 -Phadoop-3 -Phive -Phive-thriftserver -Pyarn -Pkubernetes -Phadoop-cloud -Pconnect -Pvolcano
 
 jobs:
+  precondition:
+    name: Check changes
+    runs-on: ubuntu-24.04
+    outputs:
+      required: ${{ steps.set-outputs.outputs.required }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      # Heavy standalone jobs are skipped on PRs that do not affect their modules.
+      # Pushes, manual runs and PRs to release/** always run everything.
+      - name: Check changed modules
+        id: set-outputs
+        env:
+          GITHUB_PREV_SHA: ${{ github.event.pull_request.base.sha }}
+          RUN_ALL: ${{ github.event_name != 'pull_request' || startsWith(github.base_ref, 'release/') }}
+        run: |
+          if [ "$RUN_ALL" = "true" ]; then
+            pyspark=true; sparkr=true; docker=true; kubernetes=true; tpcds=true
+          else
+            pyspark_modules=$(cd dev && python3 -c "import sparktestsupport.modules as m; print(','.join(m.name for m in m.all_modules if m.name.startswith('pyspark') and m.name != 'pyspark-install'))")
+            pyspark=$(./dev/is-changed.py -m "$pyspark_modules")
+            sparkr=$(./dev/is-changed.py -m sparkr)
+            docker=$(./dev/is-changed.py -m docker-integration-tests)
+            kubernetes=$(./dev/is-changed.py -m kubernetes)
+            tpcds=$(./dev/is-changed.py -m sql)
+          fi
+          required="{\"pyspark\": \"$pyspark\", \"sparkr\": \"$sparkr\", \"docker-integration-tests\": \"$docker\", \"k8s-integration-tests\": \"$kubernetes\", \"tpcds-1g\": \"$tpcds\"}"
+          echo "$required"
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+
   build:
     name: "${{ matrix.name }} ${{ matrix.comment }}"
     runs-on: ubuntu-24.04
@@ -141,6 +177,8 @@ jobs:
 
   pyspark:
     name: "pyspark: ${{ matrix.name }}"
+    needs: precondition
+    if: fromJSON(needs.precondition.outputs.required).pyspark == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     strategy:
@@ -227,6 +265,8 @@ jobs:
 
   sparkr:
     name: SparkR
+    needs: precondition
+    if: fromJSON(needs.precondition.outputs.required).sparkr == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -274,6 +314,8 @@ jobs:
 
   docker-integration-tests:
     name: Docker integration tests
+    needs: precondition
+    if: fromJSON(needs.precondition.outputs.required).docker-integration-tests == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -337,6 +379,8 @@ jobs:
 
   k8s-integration-tests:
     name: Kubernetes integration tests
+    needs: precondition
+    if: fromJSON(needs.precondition.outputs.required).k8s-integration-tests == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -476,6 +520,8 @@ jobs:
 
   tpcds-1g:
     name: TPC-DS (SF=1)
+    needs: precondition
+    if: fromJSON(needs.precondition.outputs.required).tpcds-1g == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
