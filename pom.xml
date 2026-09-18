@@ -2983,8 +2983,12 @@
               <!-- Needed by sql/hive tests. -->
               <test.src.tables>src</test.src.tables>
               <hive.conf.validation>false</hive.conf.validation>
-              <!-- Lets IsolatedClientLoader download the Arenadata Hive and Hadoop artifacts. -->
+              <!--
+                Arenadata Hive and Hadoop artifacts: the first property is used by
+                IsolatedClientLoader, the second by ADD JAR ivy:// and spark.jars.packages.
+              -->
               <spark.sql.maven.additionalRemoteRepositories>https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata</spark.sql.maven.additionalRemoteRepositories>
+              <spark.jars.repositories>https://maven.arenadata.io/arenadata</spark.jars.repositories>
             </systemPropertyVariables>
             <failIfNoTests>false</failIfNoTests>
             <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
@@ -3048,8 +3052,12 @@
               <spark.test.docker.removePulledImage>${spark.test.docker.removePulledImage}</spark.test.docker.removePulledImage>
               <!-- Needed by sql/hive tests. -->
               <test.src.tables>__not_used__</test.src.tables>
-              <!-- Lets IsolatedClientLoader download the Arenadata Hive and Hadoop artifacts. -->
+              <!--
+                Arenadata Hive and Hadoop artifacts: the first property is used by
+                IsolatedClientLoader, the second by ADD JAR ivy:// and spark.jars.packages.
+              -->
               <spark.sql.maven.additionalRemoteRepositories>https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata</spark.sql.maven.additionalRemoteRepositories>
+              <spark.jars.repositories>https://maven.arenadata.io/arenadata</spark.jars.repositories>
             </systemProperties>
             <tagsToExclude>${test.exclude.tags},${test.default.exclude.tags}</tagsToExclude>
             <tagsToInclude>${test.include.tags}</tagsToInclude>

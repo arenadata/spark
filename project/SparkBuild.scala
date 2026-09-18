@@ -1979,6 +1979,7 @@ object TestSettings {
     (Test / javaOptions) += "-Dspark.ui.enabled=false",
     (Test / javaOptions) += "-Dspark.sql.maven.additionalRemoteRepositories=" +
       "https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata",
+    (Test / javaOptions) += "-Dspark.jars.repositories=https://maven.arenadata.io/arenadata",
     (Test / javaOptions) += "-Dspark.ui.showConsoleProgress=false",
     (Test / javaOptions) += "-Dspark.unsafe.exceptionOnMemoryLeak=true",
     (Test / javaOptions) += "-Dspark.hadoop.hadoop.caller.context.enabled=true",
