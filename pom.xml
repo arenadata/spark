@@ -389,9 +389,9 @@
     <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
   </properties>
   <distributionManagement>
-    <!-- Shares the id of the `arenadata` <repositories> entry below on purpose:
-         GitHub Packages needs credentials for reads as well as for deploys, and
-         a single id lets one <server> in settings.xml cover both. -->
+    <!-- Deploys still need GitHub credentials (a <server> with this id). Reads go through the
+         public `arenadata-public` mirror below, which uses a different id so those credentials
+         are never sent to it. -->
     <repository>
       <id>arenadata</id>
       <name>GitHub arenadata Apache Maven Packages</name>
@@ -429,8 +429,15 @@
       </snapshots>
     </repository>
     <repository>
-      <id>arenadata</id>
-      <url>https://maven.pkg.github.com/arenadata/*</url>
+      <!-- Public mirror that proxies the Arenadata GitHub Packages; no credentials needed. -->
+      <id>arenadata-public</id>
+      <url>https://maven.arenadata.io/arenadata</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
     </repository>
   </repositories>
   <pluginRepositories>
@@ -2958,8 +2965,6 @@
               -->
               <SPARK_LOCAL_HOSTNAME>localhost</SPARK_LOCAL_HOSTNAME>
               <SPARK_LOCAL_IP>127.0.0.1</SPARK_LOCAL_IP>
-              <GITHUB_USERNAME>${env.GITHUB_USERNAME}</GITHUB_USERNAME>
-              <GITHUB_TOKEN>${env.GITHUB_TOKEN}</GITHUB_TOKEN>
               <SPARK_DEBUG_SC_JVM_CLIENT>${env.SPARK_DEBUG_SC_JVM_CLIENT}</SPARK_DEBUG_SC_JVM_CLIENT>
             </environmentVariables>
             <systemPropertyVariables>
@@ -2978,9 +2983,8 @@
               <!-- Needed by sql/hive tests. -->
               <test.src.tables>src</test.src.tables>
               <hive.conf.validation>false</hive.conf.validation>
-              <spark.jars.ivySettings>${session.executionRootDirectory}/dev/ivysettings.xml</spark.jars.ivySettings>
-              <ghpkg.user>${env.GITHUB_USERNAME}</ghpkg.user>
-              <ghpkg.token>${env.GITHUB_TOKEN}</ghpkg.token>
+              <!-- Lets IsolatedClientLoader download the Arenadata Hive and Hadoop artifacts. -->
+              <spark.sql.maven.additionalRemoteRepositories>https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata</spark.sql.maven.additionalRemoteRepositories>
             </systemPropertyVariables>
             <failIfNoTests>false</failIfNoTests>
             <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
@@ -3026,8 +3030,6 @@
               -->
               <SPARK_LOCAL_HOSTNAME>localhost</SPARK_LOCAL_HOSTNAME>
               <SPARK_LOCAL_IP>127.0.0.1</SPARK_LOCAL_IP>
-              <GITHUB_USERNAME>${env.GITHUB_USERNAME}</GITHUB_USERNAME>
-              <GITHUB_TOKEN>${env.GITHUB_TOKEN}</GITHUB_TOKEN>
               <SPARK_DEBUG_SC_JVM_CLIENT>${env.SPARK_DEBUG_SC_JVM_CLIENT}</SPARK_DEBUG_SC_JVM_CLIENT>
             </environmentVariables>
             <systemProperties>
@@ -3046,9 +3048,8 @@
               <spark.test.docker.removePulledImage>${spark.test.docker.removePulledImage}</spark.test.docker.removePulledImage>
               <!-- Needed by sql/hive tests. -->
               <test.src.tables>__not_used__</test.src.tables>
-              <spark.jars.ivySettings>${session.executionRootDirectory}/dev/ivysettings.xml</spark.jars.ivySettings>
-              <ghpkg.user>${env.GITHUB_USERNAME}</ghpkg.user>
-              <ghpkg.token>${env.GITHUB_TOKEN}</ghpkg.token>
+              <!-- Lets IsolatedClientLoader download the Arenadata Hive and Hadoop artifacts. -->
+              <spark.sql.maven.additionalRemoteRepositories>https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata</spark.sql.maven.additionalRemoteRepositories>
             </systemProperties>
             <tagsToExclude>${test.exclude.tags},${test.default.exclude.tags}</tagsToExclude>
             <tagsToInclude>${test.include.tags}</tagsToInclude>

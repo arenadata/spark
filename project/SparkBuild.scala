@@ -318,19 +318,9 @@ object SparkBuild extends PomBuild {
         DefaultMavenRepository,
         Resolver.mavenLocal,
         Resolver.file("ivyLocal", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
-        "arenadata-hadoop"    at "https://maven.pkg.github.com/arenadata/hadoop",
-        "arenadata-hive"      at "https://maven.pkg.github.com/arenadata/hive",
-        "arenadata-zookeeper" at "https://maven.pkg.github.com/arenadata/zookeeper",
-        "arenadata-curator"   at "https://maven.pkg.github.com/arenadata/curator"
+        "arenadata-public" at "https://maven.arenadata.io/arenadata"
       ),
     externalResolvers := resolvers.value,
-    credentials ++= sys.env.get("GITHUB_TOKEN").toSeq.map { token =>
-      Credentials(
-        "GitHub Package Registry",
-        "maven.pkg.github.com",
-        sys.env.getOrElse("GITHUB_USERNAME", "x-access-token"),
-        token)
-    },
     otherResolvers := SbtPomKeys.mvnLocalRepository(dotM2 => Seq(Resolver.file("dotM2", dotM2))).value,
     (MavenCompile / publishLocalConfiguration) := PublishConfiguration()
         .withResolverName("dotM2")
@@ -1987,6 +1977,8 @@ object TestSettings {
     (Test / javaOptions) += "-Dspark.master.rest.enabled=false",
     (Test / javaOptions) += "-Dspark.memory.debugFill=true",
     (Test / javaOptions) += "-Dspark.ui.enabled=false",
+    (Test / javaOptions) += "-Dspark.sql.maven.additionalRemoteRepositories=" +
+      "https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata",
     (Test / javaOptions) += "-Dspark.ui.showConsoleProgress=false",
     (Test / javaOptions) += "-Dspark.unsafe.exceptionOnMemoryLeak=true",
     (Test / javaOptions) += "-Dspark.hadoop.hadoop.caller.context.enabled=true",

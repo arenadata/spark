@@ -70,9 +70,6 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       # Required by -Psparkr, which installs the SparkR package into R/lib.
       - name: Install R
@@ -81,9 +78,6 @@ jobs:
           sudo apt-get install -y r-base
 
       - name: Build and install Spark (jars and test-jars)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: >-
           ./build/mvn ${{ env.MAVEN_ARGS }} install -DskipTests
           ${{ env.SPARK_PROFILES }} -Psparkr
@@ -162,9 +156,6 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - name: Install Python 3.10
         uses: actions/setup-python@v6
@@ -183,21 +174,8 @@ jobs:
         with:
           build-output: 'true'
 
-      - name: Provide additional artifacts for IsolatedClientLoader
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
-        run: |
-          v=$(sed -n 's|^ *<hive\.version>\(.*\)</hive\.version>.*|\1|p' pom.xml | head -1)
-          ./build/mvn ${{ env.MAVEN_ARGS }} dependency:get \
-            -Dartifact="org.apache.hive:hive-exec:$v" \
-            -Dtransitive=false \
-            -Dmaven.wagon.http.retryHandler.count=3
-
       - name: Run tests
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           SPARK_DEBUG_SC_JVM_CLIENT: 'true'
         shell: 'script -q -e -c "bash {0}"'
         run: >-
@@ -259,9 +237,6 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - uses: actions/setup-python@v6
         with:
@@ -289,9 +264,6 @@ jobs:
           build-output: 'true'
 
       - name: Run PySpark tests
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: |
           python3 python/run-tests.py --parallelism 1 --modules "$MODULES_TO_TEST" --python-executables "$PYTHON_TO_TEST"
 
@@ -324,9 +296,6 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - name: Install R
         run: |
@@ -343,9 +312,6 @@ jobs:
           build-output: 'true'
 
       - name: Run SparkR tests
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: ./R/run-tests.sh
 
       - name: Upload test reports
@@ -370,9 +336,6 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - uses: ./.github/actions/restore-spark-build
 
@@ -388,8 +351,6 @@ jobs:
 
       - name: Run tests
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           ENABLE_DOCKER_INTEGRATION_TESTS: "1"
         run: >-
           ./build/mvn ${{ env.MAVEN_ARGS }} test
@@ -428,9 +389,6 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - name: Start Minikube
         uses: medyagh/setup-minikube@e9e035a86bbc3caea26a450bd4dbf9d0c453682e # v0.0.21
@@ -460,8 +418,6 @@ jobs:
 
       - name: Run k8s integration tests
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           SPARK_K8S_TEST_HOST_GATEWAY: 192.168.49.1
         run: |
           PVC_TMP_DIR=$(mktemp -d)
@@ -551,9 +507,6 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: sbt
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - name: Cache Coursier
         uses: actions/cache@v5
@@ -585,16 +538,11 @@ jobs:
 
       - name: Generate TPC-DS data
         if: steps.cache-tpcds.outputs.cache-hit != 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: |
           build/sbt -Pscala-2.13 "sql/Test/runMain org.apache.spark.sql.GenTPCDSData --dsdgenDir $PWD/tpcds-kit/tools --location $PWD/tpcds-sf-1 --scaleFactor 1 --numPartitions 1 --overwrite"
 
       - name: Run TPC-DS queries (SMJ)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           SPARK_TPCDS_DATA: ${{ github.workspace }}/tpcds-sf-1
           SPARK_TPCDS_JOIN_CONF: |
             spark.sql.autoBroadcastJoinThreshold=-1
@@ -604,8 +552,6 @@ jobs:
 
       - name: Run TPC-DS queries (BHJ)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           SPARK_TPCDS_DATA: ${{ github.workspace }}/tpcds-sf-1
           SPARK_TPCDS_JOIN_CONF: |
             spark.sql.autoBroadcastJoinThreshold=10485760
@@ -614,8 +560,6 @@ jobs:
 
       - name: Run TPC-DS queries (SHJ)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           SPARK_TPCDS_DATA: ${{ github.workspace }}/tpcds-sf-1
           SPARK_TPCDS_JOIN_CONF: |
             spark.sql.autoBroadcastJoinThreshold=-1
@@ -651,9 +595,6 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: sbt
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - uses: actions/setup-python@v6
         with:
@@ -662,27 +603,9 @@ jobs:
       - name: License test
         run: ./dev/check-license
       - name: Dependencies test
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: ./dev/test-dependencies.sh
 
-      - name: Configure sbt credentials for GitHub Packages
-        run: |
-          mkdir -p ~/.sbt/1.0
-          cat > ~/.sbt/1.0/credentials.sbt <<EOF
-          credentials += Credentials(
-            "GitHub Package Registry",
-            "maven.pkg.github.com",
-            sys.env.getOrElse("GITHUB_USERNAME", ""),
-            sys.env.getOrElse("GITHUB_TOKEN", "")
-          )
-          EOF
-
       - name: Scala linter
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: ./dev/lint-scala
 
       - name: Scala structured logging check
@@ -691,13 +614,7 @@ jobs:
         run: python3.10 ./dev/structured_logging_style.py
 
       - name: Java linter
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: ./dev/lint-java
 
       - name: Spark connect jvm client mima check
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: ./dev/connect-jvm-client-mima-check
