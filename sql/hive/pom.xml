@@ -246,6 +246,10 @@
             for `Test / javaOptions` in `Hive.settings` within `SparkBuild.scala`.
           -->
           <argLine>-da -Xmx4g -Xss64m -XX:ReservedCodeCacheSize=${CodeCacheSize} ${extraJavaTestArgs}</argLine>
+          <systemProperties>
+            <!-- Lets IsolatedClientLoader download the Arenadata Hive and Hadoop artifacts. -->
+            <spark.sql.maven.additionalRemoteRepositories>https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata</spark.sql.maven.additionalRemoteRepositories>
+          </systemProperties>
         </configuration>
       </plugin>
       <plugin>

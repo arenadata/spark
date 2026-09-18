@@ -20,8 +20,94 @@ env:
   SPARK_PROFILES: -Pscala-2.13 -Phadoop-3 -Phive -Phive-thriftserver -Pyarn -Pkubernetes -Phadoop-cloud -Pconnect -Pvolcano
 
 jobs:
+  precondition:
+    name: Check changes
+    runs-on: ubuntu-24.04
+    outputs:
+      required: ${{ steps.set-outputs.outputs.required }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      # Heavy standalone jobs are skipped on PRs that do not affect their modules.
+      # Pushes, manual runs and PRs to release/** always run everything.
+      - name: Check changed modules
+        id: set-outputs
+        env:
+          GITHUB_PREV_SHA: ${{ github.event.pull_request.base.sha }}
+          RUN_ALL: ${{ github.event_name != 'pull_request' || startsWith(github.base_ref, 'release/') }}
+        run: |
+          if [ "$RUN_ALL" = "true" ]; then
+            pyspark=true; sparkr=true; docker=true; kubernetes=true; tpcds=true
+          else
+            pyspark_modules=$(cd dev && python3 -c "import sparktestsupport.modules as m; print(','.join(m.name for m in m.all_modules if m.name.startswith('pyspark') and m.name != 'pyspark-install'))")
+            pyspark=$(./dev/is-changed.py -m "$pyspark_modules")
+            sparkr=$(./dev/is-changed.py -m sparkr)
+            docker=$(./dev/is-changed.py -m docker-integration-tests)
+            kubernetes=$(./dev/is-changed.py -m kubernetes)
+            tpcds=$(./dev/is-changed.py -m sql)
+          fi
+          required="{\"pyspark\": \"$pyspark\", \"sparkr\": \"$sparkr\", \"docker-integration-tests\": \"$docker\", \"k8s-integration-tests\": \"$kubernetes\", \"tpcds-1g\": \"$tpcds\"}"
+          echo "$required"
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+
+  # Builds and installs Spark once. The build matrix, pyspark, SparkR, Docker and Kubernetes jobs
+  # restore the result through .github/actions/restore-spark-build instead of rebuilding it.
+  build-spark:
+    name: Build Spark
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      # Required by -Psparkr, which installs the SparkR package into R/lib.
+      - name: Install R
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y r-base
+
+      - name: Build and install Spark (jars and test-jars)
+        run: >-
+          ./build/mvn ${{ env.MAVEN_ARGS }} install -DskipTests
+          ${{ env.SPARK_PROFILES }} -Psparkr
+
+      - name: Pack build output
+        run: |
+          tar -I 'zstd -T0' -C ~/.m2/repository -cf "$RUNNER_TEMP/spark-m2.tar.zst" org/apache/spark
+          git ls-files --others --ignored --exclude-standard --directory -z \
+            | grep -zv '^build/' \
+            | tar -I 'zstd -T0' --exclude='*/target/tmp' --exclude='*/target/analysis' \
+                -cf "$RUNNER_TEMP/spark-build-output.tar.zst" --null -T -
+          ls -lh "$RUNNER_TEMP"/*.tar.zst
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spark-m2
+          path: ${{ runner.temp }}/spark-m2.tar.zst
+          compression-level: 0
+          retention-days: 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spark-build-output
+          path: ${{ runner.temp }}/spark-build-output.tar.zst
+          compression-level: 0
+          retention-days: 1
+
   build:
     name: "${{ matrix.name }} ${{ matrix.comment }}"
+    needs: build-spark
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     strategy:
@@ -70,9 +156,6 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - name: Install Python 3.10
         uses: actions/setup-python@v6
@@ -87,31 +170,12 @@ jobs:
             'grpcio-status==1.76.0' 'googleapis-common-protos==1.71.0' \
             'zstandard==0.25.0'
 
-      - name: Build dependent modules (compile main+tests, install incl. test-jars)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
-        run: >-
-          ./build/mvn ${{ env.MAVEN_ARGS }} install
-          -DskipTests=true -Dtest=__none__ -DfailIfNoTests=false
-          -pl ${{ matrix.modules }} -am
-          ${{ env.SPARK_PROFILES }}
-
-      - name: Provide additional artifacts for IsolatedClientLoader
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
-        run: |
-          v=$(sed -n 's|^ *<hive\.version>\(.*\)</hive\.version>.*|\1|p' pom.xml | head -1)
-          ./build/mvn ${{ env.MAVEN_ARGS }} dependency:get \
-            -Dartifact="org.apache.hive:hive-exec:$v" \
-            -Dtransitive=false \
-            -Dmaven.wagon.http.retryHandler.count=3
+      - uses: ./.github/actions/restore-spark-build
+        with:
+          build-output: 'true'
 
       - name: Run tests
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           SPARK_DEBUG_SC_JVM_CLIENT: 'true'
         shell: 'script -q -e -c "bash {0}"'
         run: >-
@@ -141,6 +205,8 @@ jobs:
 
   pyspark:
     name: "pyspark: ${{ matrix.name }}"
+    needs: [precondition, build-spark]
+    if: fromJSON(needs.precondition.outputs.required).pyspark == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     strategy:
@@ -171,10 +237,6 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
-          cache: maven
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - uses: actions/setup-python@v6
         with:
@@ -183,6 +245,9 @@ jobs:
       - name: Install PySpark dependencies
         run: |
           python3 -m pip install --upgrade pip
+          # CPU-only wheels; the PyPI torch pulls in several GB of CUDA libraries.
+          python3 -m pip install --index-url https://download.pytorch.org/whl/cpu \
+            'torch==2.5.1' 'torchvision==0.20.1'
           python3 -m pip install \
             'numpy==1.26.4' 'pyarrow==18.0.0' 'pandas==2.2.0' 'scipy' \
             'unittest-xml-reporting' 'coverage' \
@@ -191,21 +256,14 @@ jobs:
             'protobuf==6.33.5' 'googleapis-common-protos==1.71.0' \
             'graphviz>=0.20' 'openpyxl' \
             'scikit-learn==1.1.*' 'mlflow==3.12.0' \
-            'torch==2.5.1' 'torchvision==0.20.1' 'torcheval' \
+            'torcheval' \
             'zstandard==0.25.0'
 
-      - name: Build Spark (full reactor including assembly)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
-        run: >-
-          ./build/mvn ${{ env.MAVEN_ARGS }} package -DskipTests
-          ${{ env.SPARK_PROFILES }}
+      - uses: ./.github/actions/restore-spark-build
+        with:
+          build-output: 'true'
 
       - name: Run PySpark tests
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: |
           python3 python/run-tests.py --parallelism 1 --modules "$MODULES_TO_TEST" --python-executables "$PYTHON_TO_TEST"
 
@@ -227,6 +285,8 @@ jobs:
 
   sparkr:
     name: SparkR
+    needs: [precondition, build-spark]
+    if: fromJSON(needs.precondition.outputs.required).sparkr == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -236,10 +296,6 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
-          cache: maven
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - name: Install R
         run: |
@@ -248,20 +304,14 @@ jobs:
             r-base r-base-dev pandoc qpdf libcurl4-openssl-dev libssl-dev libxml2-dev \
             r-cran-knitr r-cran-rmarkdown r-cran-devtools r-cran-testthat \
             r-cran-survival r-cran-e1071 r-cran-roxygen2
-          sudo Rscript -e "install.packages('arrow', repos='https://cloud.r-project.org/')"
+          # Posit Package Manager serves a prebuilt binary only when the R user agent is set.
+          sudo Rscript -e "options(HTTPUserAgent = sprintf('R/%s R (%s)', getRversion(), paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os))); install.packages('arrow', repos='https://p3m.dev/cran/__linux__/noble/latest')"
 
-      - name: Build Spark (full reactor including assembly)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
-        run: >-
-          ./build/mvn ${{ env.MAVEN_ARGS }} package -DskipTests -Psparkr
-          ${{ env.SPARK_PROFILES }}
+      - uses: ./.github/actions/restore-spark-build
+        with:
+          build-output: 'true'
 
       - name: Run SparkR tests
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: ./R/run-tests.sh
 
       - name: Upload test reports
@@ -274,6 +324,8 @@ jobs:
 
   docker-integration-tests:
     name: Docker integration tests
+    needs: [precondition, build-spark]
+    if: fromJSON(needs.precondition.outputs.required).docker-integration-tests == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -284,18 +336,8 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
-      - name: Build Spark
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
-        run: >-
-          ./build/mvn ${{ env.MAVEN_ARGS }} install -DskipTests
-          -pl :spark-docker-integration-tests_2.13 -am
-          ${{ env.SPARK_PROFILES }} -Pdocker-integration-tests
+      - uses: ./.github/actions/restore-spark-build
 
       - name: Pre-pull JDBC test images
         run: |
@@ -309,8 +351,6 @@ jobs:
 
       - name: Run tests
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           ENABLE_DOCKER_INTEGRATION_TESTS: "1"
         run: >-
           ./build/mvn ${{ env.MAVEN_ARGS }} test
@@ -337,6 +377,8 @@ jobs:
 
   k8s-integration-tests:
     name: Kubernetes integration tests
+    needs: [precondition, build-spark]
+    if: fromJSON(needs.precondition.outputs.required).k8s-integration-tests == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -347,14 +389,6 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: maven
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
-
-      - name: Install R
-        run: |
-          sudo apt update
-          sudo apt-get install r-base
 
       - name: Start Minikube
         uses: medyagh/setup-minikube@e9e035a86bbc3caea26a450bd4dbf9d0c453682e # v0.0.21
@@ -365,11 +399,9 @@ jobs:
           cpus: 2
           memory: 6144m
 
-      - name: Build Spark distribution (.tgz)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
-        run: ./dev/make-distribution.sh --tgz ${{ env.SPARK_PROFILES }} -Pkubernetes -Psparkr
+      - uses: ./.github/actions/restore-spark-build
+        with:
+          build-output: 'true'
 
       - name: Build Spark Docker images
         run: |
@@ -384,21 +416,8 @@ jobs:
           minikube image load docker.io/library/spark-py:ci-test
           minikube image load docker.io/library/spark-r:ci-test
 
-      - name: Install upstream modules (skip tests)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
-        run: >-
-          ./build/mvn ${{ env.MAVEN_ARGS }} install -DskipTests
-          -pl :spark-kubernetes-integration-tests_2.13 -am
-          ${{ env.SPARK_PROFILES }} -Pkubernetes-integration-tests -Psparkr
-          -Dspark.kubernetes.test.imageRepo=docker.io/library
-          -Dspark.kubernetes.test.imageTag=ci-test
-
       - name: Run k8s integration tests
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           SPARK_K8S_TEST_HOST_GATEWAY: 192.168.49.1
         run: |
           PVC_TMP_DIR=$(mktemp -d)
@@ -476,6 +495,8 @@ jobs:
 
   tpcds-1g:
     name: TPC-DS (SF=1)
+    needs: precondition
+    if: fromJSON(needs.precondition.outputs.required).tpcds-1g == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -486,9 +507,6 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: sbt
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - name: Cache Coursier
         uses: actions/cache@v5
@@ -520,16 +538,11 @@ jobs:
 
       - name: Generate TPC-DS data
         if: steps.cache-tpcds.outputs.cache-hit != 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: |
           build/sbt -Pscala-2.13 "sql/Test/runMain org.apache.spark.sql.GenTPCDSData --dsdgenDir $PWD/tpcds-kit/tools --location $PWD/tpcds-sf-1 --scaleFactor 1 --numPartitions 1 --overwrite"
 
       - name: Run TPC-DS queries (SMJ)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           SPARK_TPCDS_DATA: ${{ github.workspace }}/tpcds-sf-1
           SPARK_TPCDS_JOIN_CONF: |
             spark.sql.autoBroadcastJoinThreshold=-1
@@ -539,8 +552,6 @@ jobs:
 
       - name: Run TPC-DS queries (BHJ)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           SPARK_TPCDS_DATA: ${{ github.workspace }}/tpcds-sf-1
           SPARK_TPCDS_JOIN_CONF: |
             spark.sql.autoBroadcastJoinThreshold=10485760
@@ -549,8 +560,6 @@ jobs:
 
       - name: Run TPC-DS queries (SHJ)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
           SPARK_TPCDS_DATA: ${{ github.workspace }}/tpcds-sf-1
           SPARK_TPCDS_JOIN_CONF: |
             spark.sql.autoBroadcastJoinThreshold=-1
@@ -586,9 +595,6 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
           cache: sbt
-          server-id: arenadata
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
 
       - uses: actions/setup-python@v6
         with:
@@ -597,27 +603,9 @@ jobs:
       - name: License test
         run: ./dev/check-license
       - name: Dependencies test
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: ./dev/test-dependencies.sh
 
-      - name: Configure sbt credentials for GitHub Packages
-        run: |
-          mkdir -p ~/.sbt/1.0
-          cat > ~/.sbt/1.0/credentials.sbt <<EOF
-          credentials += Credentials(
-            "GitHub Package Registry",
-            "maven.pkg.github.com",
-            sys.env.getOrElse("GITHUB_USERNAME", ""),
-            sys.env.getOrElse("GITHUB_TOKEN", "")
-          )
-          EOF
-
       - name: Scala linter
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: ./dev/lint-scala
 
       - name: Scala structured logging check
@@ -626,13 +614,7 @@ jobs:
         run: python3.10 ./dev/structured_logging_style.py
 
       - name: Java linter
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: ./dev/lint-java
 
       - name: Spark connect jvm client mima check
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USERNAME: ${{ github.actor }}
         run: ./dev/connect-jvm-client-mima-check
