@@ -72,9 +72,6 @@ class HadoopVersionInfoSuite extends SparkFunSuite {
   }
 
   test("Arenadata stack smoke: vendor Hive + vendor Hadoop are downloadable") {
-    assume(sys.env.contains("GITHUB_TOKEN") && sys.env.contains("GITHUB_USERNAME"),
-      "GITHUB_USERNAME/GITHUB_TOKEN are not set; skipping arenadata smoke test.")
-
     val ivyPath = Utils.createTempDir(
       namePrefix = s"${classOf[HadoopVersionInfoSuite].getSimpleName}-arenadata-ivy")
     try {
