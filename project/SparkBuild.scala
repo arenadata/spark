@@ -1437,6 +1437,10 @@ object Hive {
   lazy val settings = Seq(
     // Specially disable assertions since some Hive tests fail them
     (Test / javaOptions) := (Test / javaOptions).value.filterNot(_ == "-ea"),
+    // Lets IsolatedClientLoader download the Arenadata Hive and Hadoop artifacts. Scoped to Hive:
+    // the Spark Connect client pushes every spark.sql.* system property to its server.
+    (Test / javaOptions) += "-Dspark.sql.maven.additionalRemoteRepositories=" +
+      "https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata",
     // Hive tests need higher metaspace size
     (Test / javaOptions) := (Test / javaOptions).value.filterNot(_.contains("MaxMetaspaceSize")),
     (Test / javaOptions) += "-XX:MaxMetaspaceSize=2g",
@@ -1977,8 +1981,6 @@ object TestSettings {
     (Test / javaOptions) += "-Dspark.master.rest.enabled=false",
     (Test / javaOptions) += "-Dspark.memory.debugFill=true",
     (Test / javaOptions) += "-Dspark.ui.enabled=false",
-    (Test / javaOptions) += "-Dspark.sql.maven.additionalRemoteRepositories=" +
-      "https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata",
     (Test / javaOptions) += "-Dspark.jars.repositories=https://maven.arenadata.io/arenadata",
     (Test / javaOptions) += "-Dspark.ui.showConsoleProgress=false",
     (Test / javaOptions) += "-Dspark.unsafe.exceptionOnMemoryLeak=true",

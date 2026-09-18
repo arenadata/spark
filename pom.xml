@@ -2984,10 +2984,10 @@
               <test.src.tables>src</test.src.tables>
               <hive.conf.validation>false</hive.conf.validation>
               <!--
-                Arenadata Hive and Hadoop artifacts: the first property is used by
-                IsolatedClientLoader, the second by ADD JAR ivy:// and spark.jars.packages.
+                Arenadata artifacts for ADD JAR ivy:// and spark.jars.packages. The mirror for
+                IsolatedClientLoader is set in sql/hive only: the Spark Connect client pushes every
+                spark.sql.* system property to its server, which stalls sessions with no server.
               -->
-              <spark.sql.maven.additionalRemoteRepositories>https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata</spark.sql.maven.additionalRemoteRepositories>
               <spark.jars.repositories>https://maven.arenadata.io/arenadata</spark.jars.repositories>
             </systemPropertyVariables>
             <failIfNoTests>false</failIfNoTests>
@@ -3053,10 +3053,10 @@
               <!-- Needed by sql/hive tests. -->
               <test.src.tables>__not_used__</test.src.tables>
               <!--
-                Arenadata Hive and Hadoop artifacts: the first property is used by
-                IsolatedClientLoader, the second by ADD JAR ivy:// and spark.jars.packages.
+                Arenadata artifacts for ADD JAR ivy:// and spark.jars.packages. The mirror for
+                IsolatedClientLoader is set in sql/hive only: the Spark Connect client pushes every
+                spark.sql.* system property to its server, which stalls sessions with no server.
               -->
-              <spark.sql.maven.additionalRemoteRepositories>https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata</spark.sql.maven.additionalRemoteRepositories>
               <spark.jars.repositories>https://maven.arenadata.io/arenadata</spark.jars.repositories>
             </systemProperties>
             <tagsToExclude>${test.exclude.tags},${test.default.exclude.tags}</tagsToExclude>
