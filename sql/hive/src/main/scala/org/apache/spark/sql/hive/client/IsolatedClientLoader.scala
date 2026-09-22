@@ -136,32 +136,17 @@ private[hive] object IsolatedClientLoader extends Logging {
 
     implicit val printStream: PrintStream = SparkSubmit.printStream
     val classpaths = quietly {
-      val ivySettingsFile = sys.props.get("spark.jars.ivySettings")
-        .orElse(sys.env.get("SPARK_JARS_IVY_SETTINGS"))
-      ivySettingsFile match {
-        case Some(path) =>
-          MavenUtils.resolveMavenCoordinates(
-            hiveArtifacts.mkString(","),
-            MavenUtils.loadIvySettings(path, Some(remoteRepos), ivyPath),
-            Some(MavenUtils.buildIvySettings(
-              Some(remoteRepos),
-              ivyPath,
-              useLocalM2AsCache = false)),
-            transitive = true,
-            exclusions = version.exclusions)
-        case None =>
-          MavenUtils.resolveMavenCoordinates(
-            hiveArtifacts.mkString(","),
-            MavenUtils.buildIvySettings(
-              Some(remoteRepos),
-              ivyPath),
-            Some(MavenUtils.buildIvySettings(
-              Some(remoteRepos),
-              ivyPath,
-              useLocalM2AsCache = false)),
-            transitive = true,
-            exclusions = version.exclusions)
-      }
+      MavenUtils.resolveMavenCoordinates(
+        hiveArtifacts.mkString(","),
+        MavenUtils.buildIvySettings(
+          Some(remoteRepos),
+          ivyPath),
+        Some(MavenUtils.buildIvySettings(
+          Some(remoteRepos),
+          ivyPath,
+          useLocalM2AsCache = false)),
+        transitive = true,
+        exclusions = version.exclusions)
     }
     val allFiles = classpaths.map(new File(_)).toSet
 

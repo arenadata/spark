@@ -170,5 +170,17 @@
   <build>
     <outputDirectory>target/scala-${scala.binary.version}/classes</outputDirectory>
     <testOutputDirectory>target/scala-${scala.binary.version}/test-classes</testOutputDirectory>
+    <plugins>
+      <plugin>
+        <groupId>org.scalatest</groupId>
+        <artifactId>scalatest-maven-plugin</artifactId>
+        <configuration>
+          <systemProperties>
+            <!-- Lets IsolatedClientLoader download the Arenadata Hive and Hadoop artifacts. -->
+            <spark.sql.maven.additionalRemoteRepositories>https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata</spark.sql.maven.additionalRemoteRepositories>
+          </systemProperties>
+        </configuration>
+      </plugin>
+    </plugins>
   </build>
 </project>
