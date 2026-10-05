@@ -129,6 +129,11 @@ private[spark] class KubernetesDriverConf(
       KUBERNETES_DRIVER_SERVICE_ANNOTATION_PREFIX)
   }
 
+  def servicePorts: Map[String, String] = {
+    KubernetesUtils.parsePrefixedKeyValuePairs(sparkConf,
+      KUBERNETES_DRIVER_SERVICE_PORT_PREFIX)
+  }
+
   override def secretNamesToMountPaths: Map[String, String] = {
     KubernetesUtils.parsePrefixedKeyValuePairs(sparkConf, KUBERNETES_DRIVER_SECRETS_PREFIX)
   }

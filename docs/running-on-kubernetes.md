@@ -934,6 +934,18 @@ See the [configuration page](configuration.html) for information on Spark config
   <td>3.0.0</td>
 </tr>
 <tr>
+  <td><code>spark.kubernetes.driver.service.port.[PortName]</code></td>
+  <td>(none)</td>
+  <td>
+    Add a port named <code>PortName</code> to the driver service, with the value as both its
+    port and target port. For example, <code>spark.kubernetes.driver.service.port.kyuubi=10009</code>
+    lets a client that discovers the driver through its service reach a server the driver runs
+    on that port. The name must be a valid Kubernetes port name and must not repeat a port the
+    driver service already declares, by name or number.
+  </td>
+  <td>3.5.4.5</td>
+</tr>
+<tr>
   <td><code>spark.kubernetes.executor.label.[LabelName]</code></td>
   <td>(none)</td>
   <td>

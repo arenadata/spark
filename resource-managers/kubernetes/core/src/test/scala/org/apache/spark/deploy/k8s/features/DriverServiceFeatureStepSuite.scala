@@ -256,6 +256,67 @@ class DriverServiceFeatureStepSuite extends SparkFunSuite {
     assert(driverService.getSpec.getPublishNotReadyAddresses === true)
   }
 
+  private def serviceWithExtraPorts(ports: (String, String)*): Service = {
+    val sparkConf = new SparkConf(false)
+      .set(DRIVER_PORT, 9000)
+      .set(DRIVER_BLOCK_MANAGER_PORT, 8080)
+      .set(UI_PORT, 4080)
+    ports.foreach { case (name, number) =>
+      sparkConf.set(s"$KUBERNETES_DRIVER_SERVICE_PORT_PREFIX$name", number)
+    }
+    val kconf = KubernetesTestConf.createDriverConf(sparkConf = sparkConf, labels = DRIVER_LABELS)
+    new DriverServiceFeatureStep(kconf)
+      .getAdditionalKubernetesResources()
+      .head
+      .asInstanceOf[Service]
+  }
+
+  private def extraPortFailure(ports: (String, String)*): String = {
+    intercept[IllegalArgumentException](serviceWithExtraPorts(ports: _*)).getMessage
+  }
+
+  test("Extra service ports follow the built-in ones, with the same target port") {
+    val ports = serviceWithExtraPorts("kyuubi" -> "10009", "debug" -> "5005").getSpec.getPorts
+    assert(ports.asScala.map(_.getName) ===
+      Seq(DRIVER_PORT_NAME, BLOCK_MANAGER_PORT_NAME, UI_PORT_NAME, "debug", "kyuubi"))
+    val kyuubi = ports.asScala.find(_.getName == "kyuubi").get
+    assert(kyuubi.getPort === 10009)
+    assert(kyuubi.getTargetPort.getIntVal === 10009)
+  }
+
+  test("No extra service ports by default") {
+    assert(serviceWithExtraPorts().getSpec.getPorts.size === 3)
+  }
+
+  test("A port name Kubernetes would refuse fails submission") {
+    Seq("Kyuubi", "a" * 16, "a--b", "-a", "a-", "10009", "").foreach { name =>
+      assert(extraPortFailure(name -> "10009").contains("is not a valid port name"), name)
+    }
+  }
+
+  test("An extra port cannot repeat a built-in port") {
+    assert(extraPortFailure(UI_PORT_NAME -> "10009")
+      .contains("is a port the driver service already declares"))
+    assert(extraPortFailure("kyuubi" -> "4080").contains("already declared by the driver " +
+      s"service as $UI_PORT_NAME"))
+  }
+
+  test("Extra ports cannot share a number") {
+    assert(extraPortFailure("kyuubi" -> "10009", "thrift" -> "10009")
+      .contains("kyuubi, thrift all declare port 10009"))
+  }
+
+  test("An extra port must be a number between 1 and 65535") {
+    Seq("abc", "0", "65536", "-1", "1.5").foreach { number =>
+      assert(extraPortFailure("kyuubi" -> number).contains("is not a port number"), number)
+    }
+  }
+
+  test("spark-connect is not reserved by the 3.5 driver service") {
+    val ports = serviceWithExtraPorts("spark-connect" -> "15002").getSpec.getPorts.asScala
+    assert(ports.exists(p => p.getName == "spark-connect" && p.getPort == 15002))
+  }
+
   private def verifyService(
       driverPort: Int,
       blockManagerPort: Int,
