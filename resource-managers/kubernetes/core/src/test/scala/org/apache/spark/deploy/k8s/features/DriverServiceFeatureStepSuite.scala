@@ -293,7 +293,7 @@ class DriverServiceFeatureStepSuite extends SparkFunSuite {
   }
 
   test("A port name Kubernetes would refuse fails submission") {
-    Seq("Kyuubi", "a" * 16, "a--b", "-a", "a-", "10009", "").foreach { name =>
+    Seq("Kyuubi", "a" * 16, "a--b", "-a", "a-", "10009", "", "kyuubi\n").foreach { name =>
       assert(extraPortFailure(name -> "10009").contains("is not a valid port name"), name)
     }
   }

@@ -131,7 +131,7 @@ private[spark] object DriverServiceFeatureStep {
   val MAX_SERVICE_NAME_LENGTH = KUBERNETES_DNS_LABEL_NAME_MAX_LENGTH
   // IANA_SVC_NAME, as Kubernetes requires for a port name: at most 15 lowercase alphanumerics
   // or '-', at least one letter, no leading, trailing or adjacent '-'.
-  private val PORT_NAME_PATTERN = "^(?=.*[a-z])[a-z0-9]+(-[a-z0-9]+)*$".r
+  private val PORT_NAME_PATTERN = "(?=.*[a-z])[a-z0-9]+(-[a-z0-9]+)*".r
   private val MAX_PORT_NAME_LENGTH = 15
 
   /**
@@ -147,7 +147,7 @@ private[spark] object DriverServiceFeatureStep {
     val ports = requested.toSeq.sortBy(_._1).map { case (name, value) =>
       val key = s"$KUBERNETES_DRIVER_SERVICE_PORT_PREFIX$name"
       val validName =
-        name.length <= MAX_PORT_NAME_LENGTH && PORT_NAME_PATTERN.findFirstIn(name).isDefined
+        name.length <= MAX_PORT_NAME_LENGTH && PORT_NAME_PATTERN.pattern.matcher(name).matches()
       require(validName,
         s"$key: '$name' is not a valid port name; it must be at most $MAX_PORT_NAME_LENGTH " +
           "lowercase letters, digits or '-', contain a letter, and not start, end or repeat '-'.")
