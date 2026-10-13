@@ -987,6 +987,18 @@ See the [configuration page](configuration.html) for information on Spark config
   <td>3.0.0</td>
 </tr>
 <tr>
+  <td><code>spark.kubernetes.driver.service.port.[PortName]</code></td>
+  <td>(none)</td>
+  <td>
+    Add a port named <code>PortName</code> to the driver service, with the value as both its
+    port and target port. For example, <code>spark.kubernetes.driver.service.port.kyuubi=10009</code>
+    lets a client that discovers the driver through its service reach a server the driver runs
+    on that port. The name must be a valid Kubernetes port name and must not repeat a port the
+    driver service already declares, by name or number.
+  </td>
+  <td>4.2.0.2</td>
+</tr>
+<tr>
   <td><code>spark.kubernetes.executor.label.[LabelName]</code></td>
   <td>(none)</td>
   <td>
@@ -1582,6 +1594,17 @@ See the [configuration page](configuration.html) for information on Spark config
     <code>IPv4</code> and <code>IPv6</code>.
   </td>
   <td>3.4.0</td>
+</tr>
+<tr>
+  <td><code>spark.kubernetes.driver.service.publishNotReadyAddresses</code></td>
+  <td><code>false</code></td>
+  <td>
+    If true, the driver service publishes DNS records for the driver pod even while the pod
+    is not ready, so executors can resolve the driver service during startup when a readiness
+    probe is configured on the driver pod. When enabled, the driver pod readiness wait before
+    executor allocation is skipped as well.
+  </td>
+  <td>4.3.0</td>
 </tr>
 <tr>
   <td><code>spark.kubernetes.executor.useDriverPodIP</code></td>
