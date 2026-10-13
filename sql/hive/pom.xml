@@ -234,6 +234,10 @@
         <configuration>
           <!-- Specially disable assertions since some Hive tests fail them -->
           <argLine>-da -Xmx4g -XX:ReservedCodeCacheSize=${CodeCacheSize} ${extraJavaTestArgs} -Dio.netty.tryReflectionSetAccessible=true</argLine>
+          <systemProperties>
+            <!-- Lets IsolatedClientLoader download the Arenadata Hive and Hadoop artifacts. -->
+            <spark.sql.maven.additionalRemoteRepositories>https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata</spark.sql.maven.additionalRemoteRepositories>
+          </systemProperties>
         </configuration>
       </plugin>
       <plugin>

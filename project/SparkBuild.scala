@@ -319,19 +319,9 @@ object SparkBuild extends PomBuild {
       DefaultMavenRepository,
       Resolver.mavenLocal,
       Resolver.file("ivyLocal", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns),
-      "arenadata-hadoop"    at "https://maven.pkg.github.com/arenadata/hadoop",
-      "arenadata-hive"      at "https://maven.pkg.github.com/arenadata/hive",
-      "arenadata-zookeeper" at "https://maven.pkg.github.com/arenadata/zookeeper",
-      "arenadata-curator"   at "https://maven.pkg.github.com/arenadata/curator"
+      "arenadata-public" at "https://maven.arenadata.io/arenadata"
     ),
     externalResolvers := resolvers.value,
-    credentials ++= sys.env.get("GITHUB_TOKEN").toSeq.map { token =>
-      Credentials(
-        "GitHub Package Registry",
-        "maven.pkg.github.com",
-        sys.env.getOrElse("GITHUB_USERNAME", "x-access-token"),
-        token)
-    },
     otherResolvers := SbtPomKeys.mvnLocalRepository(dotM2 => Seq(Resolver.file("dotM2", dotM2))).value,
     (MavenCompile / publishLocalConfiguration) := PublishConfiguration()
         .withResolverName("dotM2")
@@ -474,6 +464,8 @@ object SparkBuild extends PomBuild {
 
   /* Hive console settings */
   enable(Hive.settings)(hive)
+
+  enable(HiveThriftServer.settings)(hiveThriftServer)
 
   enable(SparkConnectCommon.settings)(connectCommon)
   enable(SparkConnect.settings)(connect)
@@ -1217,6 +1209,10 @@ object Hive {
   lazy val settings = Seq(
     // Specially disable assertions since some Hive tests fail them
     (Test / javaOptions) := (Test / javaOptions).value.filterNot(_ == "-ea"),
+    // Lets IsolatedClientLoader download the Arenadata Hive and Hadoop artifacts. Scoped to Hive:
+    // the Spark Connect client pushes every spark.sql.* system property to its server.
+    (Test / javaOptions) += "-Dspark.sql.maven.additionalRemoteRepositories=" +
+      "https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata",
     // Hive tests need higher metaspace size
     (Test / javaOptions) := (Test / javaOptions).value.filterNot(_.contains("MaxMetaspaceSize")),
     (Test / javaOptions) += "-XX:MaxMetaspaceSize=2g",
@@ -1254,6 +1250,14 @@ object Hive {
     // in order to generate golden files.  This is only required for developers who are adding new
     // new query tests.
     (Test / fullClasspath) := (Test / fullClasspath).value.filterNot { f => f.toString.contains("jcl-over") }
+  )
+}
+
+object HiveThriftServer {
+  lazy val settings = Seq(
+    // Lets IsolatedClientLoader download the Arenadata Hive and Hadoop artifacts, see Hive.settings.
+    (Test / javaOptions) += "-Dspark.sql.maven.additionalRemoteRepositories=" +
+      "https://maven-central.storage-download.googleapis.com/maven2/,https://maven.arenadata.io/arenadata"
   )
 }
 
@@ -1621,6 +1625,7 @@ object TestSettings {
     (Test / javaOptions) += "-Dspark.master.rest.enabled=false",
     (Test / javaOptions) += "-Dspark.memory.debugFill=true",
     (Test / javaOptions) += "-Dspark.ui.enabled=false",
+    (Test / javaOptions) += "-Dspark.jars.repositories=https://maven.arenadata.io/arenadata",
     (Test / javaOptions) += "-Dspark.ui.showConsoleProgress=false",
     (Test / javaOptions) += "-Dspark.unsafe.exceptionOnMemoryLeak=true",
     (Test / javaOptions) += "-Dhive.conf.validation=false",
