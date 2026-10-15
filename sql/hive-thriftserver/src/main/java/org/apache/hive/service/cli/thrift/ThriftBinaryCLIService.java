@@ -35,12 +35,15 @@ import org.apache.hive.service.cli.HiveSQLException;
 import org.apache.hive.service.rpc.thrift.TGetQueryIdReq;
 import org.apache.hive.service.rpc.thrift.TGetQueryIdResp;
 import org.apache.hive.service.server.ThreadFactoryWithGarbageCleanup;
+import org.apache.thrift.TConfiguration;
 import org.apache.thrift.TException;
 import org.apache.thrift.TProcessorFactory;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.server.TServer;
 import org.apache.thrift.server.TThreadPoolServer;
 import org.apache.thrift.transport.TServerSocket;
+import org.apache.thrift.transport.TSocket;
+import org.apache.thrift.transport.TTransportException;
 import org.apache.thrift.transport.TTransportFactory;
 
 
@@ -90,7 +93,18 @@ public class ThriftBinaryCLIService extends ThriftCLIService {
 
       // Server args
       int maxMessageSize = hiveConf.getIntVar(HiveConf.ConfVars.HIVE_SERVER2_THRIFT_MAX_MESSAGE_SIZE);
-      TThreadPoolServer.Args sargs = new TThreadPoolServer.Args(serverSocket)
+      TThreadPoolServer.Args sargs = new TThreadPoolServer.Args(
+          new TServerSocket(serverSocket.getServerSocket()) {
+            @Override
+            public TSocket accept() throws TTransportException {
+              TSocket socket = super.accept();
+              // A SASL frame carries a whole message, and Thrift rejects frames above the max frame size.
+              TConfiguration configuration = socket.getConfiguration();
+              configuration.setMaxFrameSize(
+                  Math.max(configuration.getMaxFrameSize(), configuration.getMaxMessageSize()));
+              return socket;
+            }
+          })
           .processorFactory(processorFactory).transportFactory(transportFactory)
           .protocolFactory(new TBinaryProtocol.Factory())
           .inputProtocolFactory(new TBinaryProtocol.Factory(true, true, maxMessageSize, maxMessageSize))
