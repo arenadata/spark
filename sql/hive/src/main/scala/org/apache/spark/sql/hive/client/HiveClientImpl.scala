@@ -1506,6 +1506,9 @@ private[hive] object HiveClientImpl extends Logging {
               // apply the updated maxMessageSize
               tTransport.updateKnownMessageSize(0L)
             }
+            // A SASL frame carries a whole message, and Thrift rejects frames above the max frame
+            // size.
+            tConf.setMaxFrameSize(math.max(tConf.getMaxFrameSize, tConf.getMaxMessageSize))
           case _ =>
         }
         configure(msc.getTTransport)
