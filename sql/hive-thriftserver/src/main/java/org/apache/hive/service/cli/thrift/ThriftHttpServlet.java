@@ -26,7 +26,9 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.NewCookie;
@@ -47,9 +49,11 @@ import org.apache.hive.service.auth.HttpAuthenticationException;
 import org.apache.hive.service.auth.PasswdAuthenticationProvider;
 import org.apache.hive.service.cli.HiveSQLException;
 import org.apache.hive.service.cli.session.SessionManager;
+import org.apache.thrift.TException;
 import org.apache.thrift.TProcessor;
 import org.apache.thrift.protocol.TProtocolFactory;
-import org.apache.thrift.server.TServlet;
+import org.apache.thrift.transport.TIOStreamTransport;
+import org.apache.thrift.transport.TTransport;
 import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
@@ -64,7 +68,7 @@ import org.slf4j.LoggerFactory;
  * ThriftHttpServlet
  *
  */
-public class ThriftHttpServlet extends TServlet {
+public class ThriftHttpServlet extends HttpServlet {
 
   private static final long serialVersionUID = 1L;
   public static final Logger LOG = LoggerFactory.getLogger(ThriftHttpServlet.class.getName());
@@ -85,11 +89,14 @@ public class ThriftHttpServlet extends TServlet {
   private boolean isHttpOnlyCookie;
   private final HiveAuthFactory hiveAuthFactory;
   private static final String HIVE_DELEGATION_TOKEN_HEADER =  "X-Hive-Delegation-Token";
+  private final TProcessor processor;
+  private final TProtocolFactory protocolFactory;
 
   public ThriftHttpServlet(TProcessor processor, TProtocolFactory protocolFactory,
       String authType, UserGroupInformation serviceUGI, UserGroupInformation httpUGI,
       HiveAuthFactory hiveAuthFactory) {
-    super(processor, protocolFactory);
+    this.processor = processor;
+    this.protocolFactory = protocolFactory;
     this.authType = authType;
     this.serviceUGI = serviceUGI;
     this.httpUGI = httpUGI;
@@ -111,6 +118,12 @@ public class ThriftHttpServlet extends TServlet {
       this.isHttpOnlyCookie = hiveConf.getBoolVar(
         ConfVars.HIVE_SERVER2_THRIFT_HTTP_COOKIE_IS_HTTPONLY);
     }
+  }
+
+  @Override
+  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
+    doPost(request, response);
   }
 
   @Override
@@ -177,7 +190,7 @@ public class ThriftHttpServlet extends TServlet {
         }
         LOG.info("Cookie added for clientUserName " + clientUserName);
       }
-      super.doPost(request, response);
+      processThriftRequest(request, response);
     }
     catch (HttpAuthenticationException e) {
       LOG.error("Error: ", e);
@@ -560,6 +573,18 @@ public class ThriftHttpServlet extends TServlet {
     return null;
   }
 
+  private void processThriftRequest(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
+    try {
+      response.setContentType("application/x-thrift");
+      ServletOutputStream out = response.getOutputStream();
+      TTransport transport = new TIOStreamTransport(request.getInputStream(), out);
+      processor.process(protocolFactory.getProtocol(transport), protocolFactory.getProtocol(transport));
+      out.flush();
+    } catch (TException e) {
+      throw new ServletException(e);
+    }
+  }
 }
 
 
