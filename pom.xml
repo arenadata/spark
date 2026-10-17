@@ -138,7 +138,7 @@
     <hive.group>org.apache.hive</hive.group>
     <hive.classifier>core</hive.classifier>
     <!-- Version used in Maven Hive dependency -->
-    <hive.version>2.3.10.3-4.4.0-2</hive.version>
+    <hive.version>2.3.10.4-4.5.0-0</hive.version>
     <!-- note that this should be compatible with Kafka brokers version 0.10 and up -->
     <kafka.version>3.9.2</kafka.version>
     <!-- After 10.17.1.0, the minimum required version is JDK19 -->
@@ -158,7 +158,7 @@
     <orc.classifier>shaded-protobuf</orc.classifier>
     <jetty.version>12.1.10</jetty.version>
     <jakartaservlet.version>6.0.0</jakartaservlet.version>
-    <!-- SPARK-46938: Required by Hive / LibThrift libs -->
+    <!-- SPARK-46938: Required by Hive libs -->
     <javaxservlet.version>4.0.1</javaxservlet.version>
     <chill.version>0.10.0</chill.version>
     <kryo.version>4.0.3</kryo.version>
@@ -194,6 +194,9 @@
     <!--  org.apache.httpcomponents/httpclient-->
     <commons.httpclient.version>4.5.14</commons.httpclient.version>
     <commons.httpcore.version>4.4.16</commons.httpcore.version>
+    <!--  org.apache.httpcomponents.client5/httpclient5, used by libthrift and hive-jdbc -->
+    <httpclient5.version>5.5</httpclient5.version>
+    <httpcore5.version>5.3.4</httpcore5.version>
     <commons.math3.version>3.6.1</commons.math3.version>
     <commons.collections4.version>4.5.0</commons.collections4.version>
     <scala.version>2.13.18</scala.version>
@@ -229,7 +232,7 @@
     <joda.version>2.14.1</joda.version>
     <jsr305.version>3.0.0</jsr305.version>
     <jaxb.version>2.2.11</jaxb.version>
-    <libthrift.version>0.16.0</libthrift.version>
+    <libthrift.version>0.25.0</libthrift.version>
     <antlr4.version>4.13.1</antlr4.version>
     <jpam.version>1.1</jpam.version>
     <selenium.version>4.32.0</selenium.version>
@@ -837,6 +840,21 @@
         <groupId>org.apache.httpcomponents</groupId>
         <artifactId>httpcore</artifactId>
         <version>${commons.httpcore.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.client5</groupId>
+        <artifactId>httpclient5</artifactId>
+        <version>${httpclient5.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>${httpcore5.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5-h2</artifactId>
+        <version>${httpcore5.version}</version>
       </dependency>
       <dependency>
         <groupId>org.rocksdb</groupId>
@@ -2263,7 +2281,7 @@
       <dependency>
         <groupId>${hive.group}</groupId>
         <artifactId>hive-service-rpc</artifactId>
-        <version>4.3.0.2-4.4.0-0</version>
+        <version>4.3.0.3-4.5.0-0</version>
         <exclusions>
           <exclusion>
             <groupId>*</groupId>
@@ -2567,20 +2585,10 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
           </exclusion>
+          <!-- libthrift classes do not use jakarta.annotation -->
           <exclusion>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.thrift</groupId>
-        <artifactId>libfb303</artifactId>
-        <version>0.9.3</version>
-        <exclusions>
-          <exclusion>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
           </exclusion>
         </exclusions>
       </dependency>

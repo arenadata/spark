@@ -28,11 +28,11 @@ import scala.util.Try
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars
 import org.apache.hadoop.hive.ql.metadata.Hive
 import org.apache.hadoop.hive.ql.session.SessionState
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder
 import org.apache.hive.jdbc.HttpBasicAuthInterceptor
 import org.apache.hive.service.auth.PlainSaslHelper
 import org.apache.hive.service.cli.thrift.{ThriftBinaryCLIService, ThriftCLIService, ThriftCLIServiceClient}
 import org.apache.hive.service.rpc.thrift.TCLIService.Client
-import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.thrift.protocol.TBinaryProtocol
 import org.apache.thrift.transport.{THttpClient, TSocket}
 
@@ -116,7 +116,7 @@ trait SharedThriftServer extends SharedSparkSession {
           null, null, true, new util.HashMap[String, String]())
         new THttpClient(
           s"http://localhost:$serverPort/cliservice",
-          HttpClientBuilder.create.addInterceptorFirst(interceptor).build())
+          HttpClientBuilder.create.addRequestInterceptorFirst(interceptor).build())
     }
 
     val protocol = new TBinaryProtocol(transport)
