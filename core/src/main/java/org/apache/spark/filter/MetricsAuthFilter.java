@@ -108,8 +108,14 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class MetricsAuthFilter implements Filter {
 
-  /** Path segment that identifies the Spark metrics endpoints. */
+  /** Context-path prefix of the MetricsServlet / PrometheusServlet contexts. */
   private static final String METRICS_PREFIX = "/metrics/";
+
+  /** Context path of the executor metrics Jersey context (PrometheusResource). */
+  private static final String METRICS_CONTEXT = "/metrics";
+
+  /** The one metrics endpoint served by the {@link #METRICS_CONTEXT} context. */
+  private static final String EXECUTORS_PROMETHEUS = "/executors/prometheus";
 
   /** Init-param prefix carrying the embedded AuthenticationFilter's config. */
   private static final String SPNEGO_PREFIX = "spnego.";
@@ -155,8 +161,7 @@ public class MetricsAuthFilter implements Filter {
     HttpServletRequest req = (HttpServletRequest) request;
     HttpServletResponse resp = (HttpServletResponse) response;
 
-    String uri = req.getRequestURI();
-    if (uri != null && uri.contains(METRICS_PREFIX)) {
+    if (isMetricsPath(req)) {
       // Metrics path: bearer token OR open (no-token mode). Never SPNEGO, so the
       // scraper is not challenged with Kerberos.
       if (expectedToken != null && !bearerMatches(req)) {
@@ -174,6 +179,33 @@ public class MetricsAuthFilter implements Filter {
     } else {
       chain.doFilter(request, response);
     }
+  }
+
+  /**
+   * Whether the request is served by a metrics endpoint. Decided on the context the container
+   * actually routed the request to - Jetty normalizes the path before picking a handler - never
+   * on the raw request URI, whose non-canonical forms can resolve to a different UI page.
+   * MetricsServlet and PrometheusServlet each own a context under {@code /metrics/};
+   * PrometheusResource owns the {@code /metrics} context, a Jersey application that hosts every
+   * resource of its package, so only {@code /executors/prometheus} is a metrics endpoint there.
+   * A path under {@code /metrics/} that no metrics context claims is served by the root context
+   * and is not a metrics request.
+   */
+  static boolean isMetricsPath(HttpServletRequest req) {
+    String contextPath = nullToEmpty(req.getContextPath());
+    if (contextPath.startsWith(METRICS_PREFIX)) {
+      return true;
+    }
+    if (contextPath.equals(METRICS_CONTEXT)) {
+      String pathInContext = nullToEmpty(req.getServletPath()) + nullToEmpty(req.getPathInfo());
+      return pathInContext.equals(EXECUTORS_PROMETHEUS)
+          || pathInContext.equals(EXECUTORS_PROMETHEUS + "/");
+    }
+    return false;
+  }
+
+  private static String nullToEmpty(String s) {
+    return s == null ? "" : s;
   }
 
   private boolean bearerMatches(HttpServletRequest req) {
