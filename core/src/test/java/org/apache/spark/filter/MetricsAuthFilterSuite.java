@@ -186,6 +186,59 @@ class MetricsAuthFilterSuite {
     verify(chain, times(1)).doFilter(req, resp);
   }
 
+  // ---- path matching uses the routed path, not the raw URI ----------------
+
+  @Test
+  void routedPathTakesPrecedenceOverRawUri() throws Exception {
+    RecordingFilter delegate = new RecordingFilter();
+    Map<String, String> p = params("spnego.type", "simple"); // open-metrics mode
+    MetricsAuthFilter f = newFilter(p, delegate);
+
+    HttpServletRequest req = routedRequest("/metrics/prometheus/", "/environment", "/", null);
+    HttpServletResponse resp = mock(HttpServletResponse.class);
+    FilterChain chain = mock(FilterChain.class);
+
+    f.doFilter(req, resp, chain);
+
+    assertEquals(1, delegate.doFilterCalls,
+        "the routed path decides, not the raw URI");
+  }
+
+  @Test
+  void uiPathContainingMetricsSegmentIsDelegated() throws Exception {
+    RecordingFilter delegate = new RecordingFilter();
+    MetricsAuthFilter f = newFilter(params("spnego.type", "simple"), delegate);
+
+    HttpServletRequest req = routedRequest("/jobs/metrics/", "/jobs", "/metrics/", null);
+    f.doFilter(req, mock(HttpServletResponse.class), mock(FilterChain.class));
+
+    assertEquals(1, delegate.doFilterCalls, "only paths under /metrics/ are metrics");
+  }
+
+  @Test
+  void metricsHandlersAreRecognizedByRoutedPath() {
+    // MetricsServlet / PrometheusServlet / History Server: one context per endpoint.
+    assertTrue(MetricsAuthFilter.isMetricsPath(
+        routedRequest("/metrics/json/", "/metrics/json", "/", null)));
+    assertTrue(MetricsAuthFilter.isMetricsPath(
+        routedRequest("/metrics/applicationHistory/prometheus/",
+            "/metrics/applicationHistory/prometheus", "/", null)));
+    // PrometheusResource: a single /metrics context, the endpoint is the path info.
+    assertTrue(MetricsAuthFilter.isMetricsPath(
+        routedRequest("/metrics/executors/prometheus", "/metrics", "", "/executors/prometheus")));
+    // Routed to a UI context: the raw URI is not consulted.
+    assertFalse(MetricsAuthFilter.isMetricsPath(
+        routedRequest("/metrics/prometheus/", "/environment", "/", null)));
+    // A path under /metrics/ that no metrics context claims is served by the root context.
+    assertFalse(MetricsAuthFilter.isMetricsPath(
+        routedRequest("/metrics/unknown/", "", "/metrics/unknown/", null)));
+    // The /metrics Jersey context also hosts the REST API; only executor metrics are exempt.
+    assertFalse(MetricsAuthFilter.isMetricsPath(
+        routedRequest("/metrics/v1/applications", "/metrics", "", "/v1/applications")));
+    assertFalse(MetricsAuthFilter.isMetricsPath(routedRequest("/", "", "/", null)));
+    assertFalse(MetricsAuthFilter.isMetricsPath(routedRequest(null, null, null, null)));
+  }
+
   // ---- PrefixedFilterConfig : prefix stripping + token hiding --------------
 
   @Test
@@ -224,15 +277,27 @@ class MetricsAuthFilterSuite {
   }
 
   private static HttpServletRequest metricsRequest(String authorization) {
-    HttpServletRequest req = mock(HttpServletRequest.class);
-    when(req.getRequestURI()).thenReturn("/metrics/prometheus/");
+    HttpServletRequest req =
+        routedRequest("/metrics/prometheus/", "/metrics/prometheus", "/", null);
     when(req.getHeader("Authorization")).thenReturn(authorization);
     return req;
   }
 
   private static HttpServletRequest uiRequest(String uri) {
+    return routedRequest(uri, uri.replaceAll("/+$", ""), "/", null);
+  }
+
+  /**
+   * A request as Jetty presents it to a filter: the raw URI as sent, plus the normalized
+   * context path / servlet path / path info of the handler Jetty routed it to.
+   */
+  private static HttpServletRequest routedRequest(String rawUri, String contextPath,
+      String servletPath, String pathInfo) {
     HttpServletRequest req = mock(HttpServletRequest.class);
-    when(req.getRequestURI()).thenReturn(uri);
+    when(req.getRequestURI()).thenReturn(rawUri);
+    when(req.getContextPath()).thenReturn(contextPath);
+    when(req.getServletPath()).thenReturn(servletPath);
+    when(req.getPathInfo()).thenReturn(pathInfo);
     return req;
   }
 
