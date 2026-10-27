@@ -18,6 +18,7 @@
 package org.apache.spark.sql.catalyst
 
 import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
 
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.util.BoundedPriorityQueue
@@ -88,6 +89,36 @@ object QueryPlanningTracker {
     localTracker.set(tracker)
     try f finally { localTracker.set(originalTracker) }
   }
+
+  /** The texts of a query. The DataFrame text is built on first use; failures give None. */
+  private[sql] class QueryTexts(
+      val sqlText: Option[String],
+      buildDataFrameText: () => Option[String]) {
+    // Dropped once the text is built, so that the text does not keep the plan it is built from.
+    private[this] var build = buildDataFrameText
+
+    lazy val dataFrameText: Option[String] = try {
+      Option(build()).flatten
+    } catch {
+      case NonFatal(_) | _: StackOverflowError => None
+    } finally {
+      build = null
+    }
+  }
+
+  private[sql] val NoTexts = new QueryTexts(None, () => None)
+
+  // Queries that share a tracker, e.g. a Dataset and its writes, each see their own texts.
+  private val localTexts = new ThreadLocal[List[(QueryPlanningTracker, QueryTexts)]] {
+    override def initialValue(): List[(QueryPlanningTracker, QueryTexts)] = Nil
+  }
+
+  /** Makes `tracker` give the texts of a query to the code that `f` runs on this thread. */
+  private[sql] def withTexts[T](tracker: QueryPlanningTracker, texts: QueryTexts)(f: => T): T = {
+    val originalTexts = localTexts.get()
+    localTexts.set((tracker, texts) :: originalTexts)
+    try f finally localTexts.set(originalTexts)
+  }
 }
 
 /**
@@ -137,6 +168,25 @@ class QueryPlanningTracker(
   private val phasesMap = new java.util.HashMap[String, PhaseSummary]
 
   private var readyForExecution = false
+
+  // Set by QueryExecution before analysis, so that rules, e.g. authorization, can read them.
+  @volatile private var queryTexts: QueryTexts = NoTexts
+
+  private def texts: QueryTexts = {
+    localTexts.get().collectFirst { case (tracker, ownTexts) if tracker eq this => ownTexts }
+      .getOrElse(queryTexts)
+  }
+
+  /** The SQL statement of this query, redacted; None for the Dataset API. */
+  def sqlText: Option[String] = texts.sqlText
+
+  /** The Dataset API calls of this query, e.g. `spark.table("t").filter("id > 0")`, redacted. */
+  def dataFrameText: Option[String] = texts.dataFrameText
+
+  /** Sets the texts of the query this tracker is created for, unless they are set already. */
+  private[sql] def setTexts(texts: QueryTexts): Unit = synchronized {
+    if (queryTexts eq NoTexts) queryTexts = texts
+  }
 
   /**
    * Measure the start and end time of a phase. Note that if this function is called multiple

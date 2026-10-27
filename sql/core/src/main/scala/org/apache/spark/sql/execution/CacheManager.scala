@@ -391,10 +391,12 @@ class CacheManager extends Logging with AdaptiveSparkPlanHelper {
     val sessionWithConfigsOff = getOrCloneSessionWithConfigsOff(spark)
     sessionWithConfigsOff.withActive {
       tryRefreshPlan(sessionWithConfigsOff, cd.plan).map { refreshedPlan =>
-        val qe = QueryExecution.create(
-          sessionWithConfigsOff,
-          refreshedPlan,
-          refreshPhaseEnabled = false)
+        val qe = QueryExecution.withCommandTextsOnly {
+          QueryExecution.create(
+            sessionWithConfigsOff,
+            refreshedPlan,
+            refreshPhaseEnabled = false)
+        }
         val newKey = qe.normalized
         val newCache = InMemoryRelation(cd.cachedRepresentation.cacheBuilder, qe)
         cd.copy(plan = newKey, cachedRepresentation = newCache)
