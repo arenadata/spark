@@ -440,7 +440,10 @@ because `spark.ui.filters`, the ACLs and the TLS connector are all UI-wide. It b
 no `token` is set, leaves open) `/metrics/*` for a Prometheus/vmagent scraper that cannot perform
 Kerberos, while optionally delegating every other path to an embedded `AuthenticationFilter` for
 SPNEGO. Register **only** this filter (it embeds the SPNEGO delegate; do not also list
-`AuthenticationFilter`, which would challenge `/metrics/*` too):
+`AuthenticationFilter`, which would challenge `/metrics/*` too). The metrics endpoints are the
+metrics servlets mounted under `/metrics/` (`/metrics/json` and the `PrometheusServlet` paths, such as
+`/metrics/prometheus` or `/metrics/applicationHistory/prometheus`) plus
+`/metrics/executors/prometheus`; any other path is treated as part of the UI:
 
 ```
 spark.ui.filters=org.apache.spark.filter.MetricsAuthFilter
