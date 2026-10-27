@@ -273,7 +273,9 @@ class CacheManager extends Logging with AdaptiveSparkPlanHelper {
       cd.cachedRepresentation.cacheBuilder.clearCache()
       val sessionWithConfigsOff = getOrCloneSessionWithConfigsOff(spark)
       val newCache = sessionWithConfigsOff.withActive {
-        val qe = sessionWithConfigsOff.sessionState.executePlan(cd.plan)
+        val qe = QueryExecution.withCommandTextsOnly {
+          sessionWithConfigsOff.sessionState.executePlan(cd.plan)
+        }
         InMemoryRelation(cd.cachedRepresentation.cacheBuilder, qe)
       }
       val recomputedPlan = cd.copy(cachedRepresentation = newCache)

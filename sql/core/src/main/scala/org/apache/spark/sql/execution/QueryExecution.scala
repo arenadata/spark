@@ -19,7 +19,9 @@ package org.apache.spark.sql.execution
 
 import java.io.{BufferedWriter, OutputStreamWriter}
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+
+import scala.annotation.tailrec
 
 import org.apache.hadoop.fs.Path
 
@@ -28,15 +30,17 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.{InternalRow, QueryPlanningTracker}
+import org.apache.spark.sql.catalyst.QueryPlanningTracker.{NoTexts, QueryTexts}
 import org.apache.spark.sql.catalyst.analysis.UnsupportedOperationChecker
 import org.apache.spark.sql.catalyst.expressions.codegen.ByteCodeStats
 import org.apache.spark.sql.catalyst.plans.QueryPlan
-import org.apache.spark.sql.catalyst.plans.logical.{AppendData, Command, CommandResult, CreateTableAsSelect, LogicalPlan, OverwriteByExpression, OverwritePartitionsDynamic, ReplaceTableAsSelect, ReturnAnswer}
+import org.apache.spark.sql.catalyst.plans.logical.{AppendData, Command, CommandResult, CreateTableAsSelect, InsertIntoStatement, LogicalPlan, OverwriteByExpression, OverwritePartitionsDynamic, ReplaceTableAsSelect, ReturnAnswer, WithCTE}
 import org.apache.spark.sql.catalyst.rules.{PlanChangeLogger, Rule}
 import org.apache.spark.sql.catalyst.util.StringUtils.PlanStringConcat
 import org.apache.spark.sql.catalyst.util.truncatedString
 import org.apache.spark.sql.execution.adaptive.{AdaptiveExecutionContext, InsertAdaptiveSparkPlan}
 import org.apache.spark.sql.execution.bucketing.{CoalesceBucketsInJoin, DisableUnnecessaryBucketedScan}
+import org.apache.spark.sql.execution.datasources.CreateTable
 import org.apache.spark.sql.execution.dynamicpruning.PlanDynamicPruningFilters
 import org.apache.spark.sql.execution.exchange.EnsureRequirements
 import org.apache.spark.sql.execution.reuse.ReuseExchangeAndSubquery
@@ -60,6 +64,10 @@ class QueryExecution(
 
   val id: Long = QueryExecution.nextExecutionId
 
+  // Taken before analysis: analysis can replace the root with a node shared with other queries.
+  private val texts = QueryExecution.queryTexts(sparkSession, logical)
+  tracker.setTexts(texts)
+
   // TODO: Move the planner an optimizer into here from SessionState.
   protected def planner = sparkSession.sessionState.planner
 
@@ -74,16 +82,24 @@ class QueryExecution(
   lazy val analyzed: LogicalPlan = {
     val plan = executePhase(QueryPlanningTracker.ANALYSIS) {
       // We can't clone `logical` here, which will reset the `_analyzed` flag.
-      sparkSession.sessionState.analyzer.executeAndCheck(logical, tracker)
+      // Keep the tracker in scope for the check rules too, not only for the analyzer rules.
+      QueryPlanningTracker.withTracker(tracker) {
+        sparkSession.sessionState.analyzer.executeAndCheck(logical, tracker)
+      }
     }
     tracker.setAnalyzed(plan)
+    DataFrameText.tagPreAnalysisPlan(plan, logical)
     plan
   }
 
-  lazy val commandExecuted: LogicalPlan = mode match {
-    case CommandExecutionMode.NON_ROOT => analyzed.mapChildren(eagerlyExecuteCommands)
-    case CommandExecutionMode.ALL => eagerlyExecuteCommands(analyzed)
-    case CommandExecutionMode.SKIP => analyzed
+  lazy val commandExecuted: LogicalPlan = {
+    val plan = mode match {
+      case CommandExecutionMode.NON_ROOT => analyzed.mapChildren(eagerlyExecuteCommands)
+      case CommandExecutionMode.ALL => eagerlyExecuteCommands(analyzed)
+      case CommandExecutionMode.SKIP => analyzed
+    }
+    DataFrameText.tagPreAnalysisPlan(plan, logical)
+    plan
   }
 
   private def commandExecutionName(command: Command): String = command match {
@@ -102,15 +118,17 @@ class QueryExecution(
       // with the rest of processing of the root plan being just outputting command results,
       // for eagerly executed commands we mark this place as beginning of execution.
       tracker.setReadyForExecution()
-      val qe = sparkSession.sessionState.executePlan(c, CommandExecutionMode.NON_ROOT)
-      val result = SQLExecution.withNewExecutionId(qe, Some(commandExecutionName(c))) {
-        qe.executedPlan.executeCollect()
+      QueryExecution.withCommandTexts(texts) {
+        val qe = sparkSession.sessionState.executePlan(c, CommandExecutionMode.NON_ROOT)
+        val result = SQLExecution.withNewExecutionId(qe, Some(commandExecutionName(c))) {
+          qe.executedPlan.executeCollect()
+        }
+        CommandResult(
+          qe.analyzed.output,
+          qe.commandExecuted,
+          qe.executedPlan,
+          result)
       }
-      CommandResult(
-        qe.analyzed.output,
-        qe.commandExecuted,
-        qe.executedPlan,
-        result)
     case other => other
   }
 
@@ -216,7 +234,9 @@ class QueryExecution(
 
   protected def executePhase[T](phase: String)(block: => T): T = sparkSession.withActive {
     QueryExecution.withInternalError(s"The Spark SQL phase $phase failed with an internal error.") {
-      tracker.measurePhase(phase)(block)
+      QueryPlanningTracker.withTexts(tracker, texts) {
+        tracker.measurePhase(phase)(block)
+      }
     }
   }
 
@@ -426,6 +446,59 @@ object QueryExecution {
   private val _nextExecutionId = new AtomicLong(0)
 
   private def nextExecutionId: Long = _nextExecutionId.getAndIncrement
+
+  // The texts of the command running on this thread: the queries it creates take them.
+  private val commandTexts = new ThreadLocal[Option[AtomicReference[QueryTexts]]] {
+    override def initialValue(): Option[AtomicReference[QueryTexts]] = None
+  }
+
+  private def withCommandTexts[T](texts: QueryTexts)(f: => T): T = {
+    val originalTexts = commandTexts.get()
+    val current = new AtomicReference(texts)
+    commandTexts.set(Some(current))
+    try f finally {
+      current.set(null)
+      commandTexts.set(originalTexts)
+    }
+  }
+
+  /** Runs `f` so that its queries never take the texts of other sessions' plans, e.g. caches. */
+  private[execution] def withCommandTextsOnly[T](f: => T): T = {
+    if (commandTexts.get().isDefined) f else withCommandTexts(NoTexts)(f)
+  }
+
+  // Redacted with the pattern of the application: sessions cannot change it.
+  private def queryTexts(sparkSession: SparkSession, plan: LogicalPlan): QueryTexts = {
+    commandTexts.get() match {
+      case Some(command) =>
+        Option(command.get()).flatMap(_.sqlText) match {
+          case Some(text) => new QueryTexts(Some(text), () => None)
+          case None => new QueryTexts(None, () => Option(command.get()).flatMap(_.dataFrameText))
+        }
+      case None =>
+        val redactionPattern =
+          sparkSession.sharedState.conf.get(SQLConf.SQL_STRING_REDACTION_PATTERN)
+        statementSqlText(plan).map(Utils.redact(redactionPattern, _)) match {
+          case Some(text) => new QueryTexts(Some(text), () => None)
+          case None => new QueryTexts(None,
+            () => DataFrameText.render(plan).map(Utils.redact(redactionPattern, _)))
+        }
+    }
+  }
+
+  /**
+   * The text of the SQL statement `plan` was parsed from, under the unary nodes the Dataset API
+   * adds on top of it. Never taken from nodes shared between sessions, e.g. views.
+   */
+  @tailrec
+  private[sql] def statementSqlText(plan: LogicalPlan): Option[String] = plan match {
+    case p if DataFrameText.isShared(p) => None
+    case p if p.origin.sqlText.isDefined => p.origin.sqlText
+    case _: Command | _: InsertIntoStatement | _: CreateTable => None
+    case w: WithCTE => statementSqlText(w.plan)
+    case p if p.children.size == 1 => statementSqlText(p.children.head)
+    case _ => None
+  }
 
   /**
    * Construct a sequence of rules that are used to prepare a planned [[SparkPlan]] for execution.
