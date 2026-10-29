@@ -16,4 +16,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__: str = "4.2.0.2+4.4.0-1"
+__version__: str = "4.2.0.3+4.5.0-0"

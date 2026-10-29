@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag to build and attach assets to (e.g. v4.2.0.2-4.4.0-0). Leave empty to build the dispatched ref without touching any release.'
+        description: 'Release tag to build and attach assets to (e.g. v4.2.0.3-4.5.0-0). Leave empty to build the dispatched ref without touching any release.'
         required: false
         type: string
       publish_maven:
