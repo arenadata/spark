@@ -280,6 +280,9 @@ org.apache.hadoop:hadoop-yarn-server-common
 org.apache.hadoop:hadoop-yarn-server-web-proxy
 org.apache.httpcomponents:httpclient
 org.apache.httpcomponents:httpcore
+org.apache.httpcomponents.client5:httpclient5
+org.apache.httpcomponents.core5:httpcore5
+org.apache.httpcomponents.core5:httpcore5-h2
 org.apache.kerby:kerb-admin
 org.apache.kerby:kerb-client
 org.apache.kerby:kerb-common
@@ -355,7 +358,6 @@ org.apache.parquet:parquet-encoding
 org.apache.parquet:parquet-format
 org.apache.parquet:parquet-hadoop
 org.apache.parquet:parquet-jackson
-org.apache.thrift:libfb303
 org.apache.thrift:libthrift
 org.codehaus.jackson:jackson-core-asl
 org.codehaus.jackson:jackson-mapper-asl

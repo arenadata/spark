@@ -21,6 +21,7 @@ import java.sql.{ResultSet, SQLException}
 import java.util.concurrent.atomic.AtomicBoolean
 
 import org.apache.hive.service.cli.{GetInfoType, HiveSQLException, OperationHandle}
+import org.apache.thrift.TConfiguration
 
 import org.apache.spark.{ErrorMessageFormat, TaskKilled}
 import org.apache.spark.scheduler.{SparkListener, SparkListenerTaskEnd}
@@ -252,6 +253,18 @@ trait ThriftServerWithSparkContextSuite extends SharedThriftServer {
       assert(rs1.getString(1) === "default")
       assert(rs1.getType === ResultSet.TYPE_FORWARD_ONLY)
       assertThrows[SQLException](rs1.beforeFirst())
+    }
+  }
+
+  test("Messages larger than Thrift's default max frame size") {
+    // A SASL frame carries a whole message; the statement and the result below exceed the default
+    // max frame size.
+    val length = TConfiguration.DEFAULT_MAX_FRAME_SIZE + 1024
+    withJdbcStatement() { stmt =>
+      stmt.execute(s"SET spark.test.thrift.large.value=${"x" * length}")
+      val rs = stmt.executeQuery(s"SELECT repeat('x', $length)")
+      assert(rs.next())
+      assert(rs.getString(1).length === length)
     }
   }
 }
