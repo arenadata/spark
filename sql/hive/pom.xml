@@ -182,10 +182,6 @@
       <artifactId>libthrift</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.apache.thrift</groupId>
-      <artifactId>libfb303</artifactId>
-    </dependency>
-    <dependency>
       <groupId>org.apache.derby</groupId>
       <artifactId>derby</artifactId>
     </dependency>
