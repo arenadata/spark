@@ -32,6 +32,8 @@
   <url>https://spark.apache.org/</url>
   <properties>
     <sbt.project.name>docker-integration-tests</sbt.project.name>
+    <!-- The HBase client that hive-hbase-handler ${hive.version} is built against -->
+    <hbase.version>2.6.3-hadoop3</hbase.version>
   </properties>
 
   <dependencies>
@@ -125,6 +127,42 @@
       <groupId>com.github.docker-java</groupId>
       <artifactId>docker-java-transport-zerodep</artifactId>
       <scope>test</scope>
+    </dependency>
+    <!-- HBaseStorageHandlerIntegrationSuite: Spark with Hive support and an HBase client -->
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-hive_${scala.binary.version}</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-shaded-mapreduce</artifactId>
+      <version>${hbase.version}</version>
+      <scope>test</scope>
+      <exclusions>
+        <!-- Hadoop comes from Spark; the rest is only used by the shaded Jersey -->
+        <exclusion>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>jakarta.annotation</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>jakarta.validation</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.glassfish.hk2.external</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.javassist</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 </project>

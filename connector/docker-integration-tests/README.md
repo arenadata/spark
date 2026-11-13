@@ -50,6 +50,7 @@ Besides the default Docker images, the integration tests can be run with custom 
 The following environment variables can be used to specify the custom Docker images for different databases:
 
 - DB2_DOCKER_IMAGE_NAME
+- HBASE_DOCKER_IMAGE_NAME (built from `src/test/resources/hbase` when it is missing)
 - MARIADB_DOCKER_IMAGE_NAME
 - MSSQLSERVER_DOCKER_IMAGE_NAME
 - MYSQL_DOCKER_IMAGE_NAME

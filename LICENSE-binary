@@ -333,6 +333,7 @@ org.apache.hive:hive-beeline
 org.apache.hive:hive-cli
 org.apache.hive:hive-common
 org.apache.hive:hive-exec
+org.apache.hive:hive-hbase-handler
 org.apache.hive:hive-jdbc
 org.apache.hive:hive-metastore
 org.apache.hive:hive-serde
