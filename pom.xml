@@ -26,7 +26,7 @@
   </parent>
   <groupId>org.apache.spark</groupId>
   <artifactId>spark-parent_2.13</artifactId>
-  <version>4.2.0.3-4.5.0-0</version>
+  <version>4.2.0.3-4.5.0-1</version>
   <packaging>pom</packaging>
   <name>Spark Project Parent POM</name>
   <url>https://spark.apache.org/</url>
@@ -129,16 +129,16 @@
     <slf4j.version>2.0.17</slf4j.version>
     <log4j.version>2.25.4</log4j.version>
     <!-- make sure to update IsolatedClientLoader whenever this version is changed -->
-    <hadoop.version>3.4.3.2-4.4.0-1</hadoop.version>
+    <hadoop.version>3.4.3.3-4.5.0-1</hadoop.version>
     <!-- SPARK-41247: When updating `protobuf.version`, also need to update `protoVersion` in `SparkBuild.scala` -->
     <protobuf.version>4.33.5</protobuf.version>
     <protoc-jar-maven-plugin.version>3.11.4</protoc-jar-maven-plugin.version>
-    <zookeeper.version>3.9.5.2-4.4.0-0</zookeeper.version>
-    <curator.version>5.9.0.2-4.4.0-0</curator.version>
+    <zookeeper.version>3.9.5.3-4.5.0-2</zookeeper.version>
+    <curator.version>5.9.0.3-4.5.0-2</curator.version>
     <hive.group>org.apache.hive</hive.group>
     <hive.classifier>core</hive.classifier>
     <!-- Version used in Maven Hive dependency -->
-    <hive.version>2.3.10.4-4.5.0-0</hive.version>
+    <hive.version>2.3.10.4-4.5.0-1</hive.version>
     <!-- note that this should be compatible with Kafka brokers version 0.10 and up -->
     <kafka.version>3.9.2</kafka.version>
     <!-- After 10.17.1.0, the minimum required version is JDK19 -->
@@ -1906,6 +1906,11 @@
             <groupId>org.eclipse.jetty.aggregate</groupId>
             <artifactId>jetty-all</artifactId>
           </exclusion>
+          <!-- Spark supplies Jetty for its own server; exclude the Hive web server jars. -->
+          <exclusion>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
           <exclusion>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>*</artifactId>
@@ -2281,7 +2286,7 @@
       <dependency>
         <groupId>${hive.group}</groupId>
         <artifactId>hive-service-rpc</artifactId>
-        <version>4.3.0.3-4.5.0-0</version>
+        <version>4.3.0.3-4.5.0-1</version>
         <exclusions>
           <exclusion>
             <groupId>*</groupId>
