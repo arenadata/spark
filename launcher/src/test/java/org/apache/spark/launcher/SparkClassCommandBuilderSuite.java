@@ -36,4 +36,16 @@ public class SparkClassCommandBuilderSuite extends BaseSuite {
     assertTrue(strings.contains("-DmyKey=yourValue"));
     assertTrue(strings.contains("myBeelineArg"));
   }
+
+  @Test
+  public void testHistoryServerGetsDefaultModuleOptions() throws Exception {
+    List<String> args = Arrays.asList("myHistoryArg");
+    SparkClassCommandBuilder builder = new SparkClassCommandBuilder(
+      "org.apache.spark.deploy.history.HistoryServer", args);
+    List<String> strings = builder.buildCommand(new HashMap<>());
+    assertTrue(strings.contains("--add-opens=java.base/java.lang=ALL-UNNAMED"));
+    assertTrue(strings.indexOf("org.apache.spark.deploy.history.HistoryServer")
+      > strings.indexOf("--add-opens=java.base/java.lang=ALL-UNNAMED"));
+    assertTrue(strings.contains("myHistoryArg"));
+  }
 }

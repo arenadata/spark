@@ -113,6 +113,8 @@ class SparkClassCommandBuilder extends AbstractCommandBuilder {
 
     String mem = firstNonEmpty(memKey != null ? System.getenv(memKey) : null, DEFAULT_MEM);
     cmd.add("-Xmx" + mem);
+    // Backport from Spark 4.0: spark-class daemons need the default --add-opens on JDK 17+.
+    addOptionString(cmd, JavaModuleOptions.defaultModuleOptions());
     cmd.add(className);
     cmd.addAll(classArgs);
     return cmd;
