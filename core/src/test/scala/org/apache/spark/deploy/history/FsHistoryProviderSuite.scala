@@ -1545,7 +1545,10 @@ abstract class FsHistoryProviderSuite extends SparkFunSuite with Matchers with P
       val hadoopConf = SparkHadoopUtil.newConfiguration(conf)
       val fs = new Path(dir.getAbsolutePath).getFileSystem(hadoopConf)
 
-      val provider = new FsHistoryProvider(conf)
+      // Manual clock so the clock always moves between scans; stale detection in
+      // checkForLogs() only drops entries with lastProcessed <= newScanTime - 1.
+      val clock = new ManualClock()
+      val provider = new FsHistoryProvider(conf, clock)
 
       val writer = new RollingEventLogFilesWriter("app", None, dir.toURI, conf, hadoopConf)
       writer.start()
@@ -1562,6 +1565,7 @@ abstract class FsHistoryProviderSuite extends SparkFunSuite with Matchers with P
       val appStatusPath = RollingEventLogFilesWriter.getAppStatusFilePath(new Path(writer.logPath),
         "app", None, true)
       fs.delete(appStatusPath, false)
+      clock.advance(1)
       provider.checkForLogs()
       provider.cleanLogs()
       assert(provider.getListing(None).length === 0)
@@ -1574,6 +1578,7 @@ abstract class FsHistoryProviderSuite extends SparkFunSuite with Matchers with P
         SparkListenerJobStart(1, 0, Seq.empty)), rollFile = false)
 
       // Both folders exist but only one application found
+      clock.advance(1)
       provider.checkForLogs()
       provider.cleanLogs()
       assert(provider.getListing(None).length === 1)
