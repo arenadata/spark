@@ -548,7 +548,10 @@ Configuration for SSL is organized hierarchically. The user can configure the de
 which will be used for all the supported communication protocols unless they are overwritten by
 protocol-specific settings. This way the user can easily provide the common settings for all the
 protocols without disabling the ability to configure each one individually. Note that all settings 
-are inherited this way, *except* for `spark.ssl.rpc.enabled` which must be explicitly set.
+are inherited this way, *except* for `spark.ssl.rpc.enabled` and `spark.ssl.connect.enabled` which
+must be explicitly set. The `spark.ssl.connect` settings inherit the default settings only when
+`spark.ssl.enabled` is `true`; otherwise every setting of the Spark Connect server, such as its key
+store, must be set in the `spark.ssl.connect` namespace.
 
 The following table describes the SSL configuration namespaces:
 
@@ -582,6 +585,10 @@ The following table describes the SSL configuration namespaces:
     <td><code>spark.ssl.rpc</code></td>
     <td>Spark RPC communication</td>
   </tr>
+  <tr>
+    <td><code>spark.ssl.connect</code></td>
+    <td>Spark Connect server</td>
+  </tr>
 </table>
 
 The full breakdown of available SSL options can be found below. The `${ns}` placeholder should be
@@ -593,7 +600,7 @@ replaced with one of the above namespaces.
     <td><code>${ns}.enabled</code></td>
     <td>false</td>
     <td>Enables SSL. When enabled, <code>${ns}.ssl.protocol</code> is required.</td>
-    <td>ui,standalone,historyServer,rpc</td>
+    <td>ui,standalone,historyServer,rpc,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.port</code></td>
@@ -606,6 +613,9 @@ replaced with one of the above namespaces.
 
       <br />When not set, the SSL port will be derived from the non-SSL port for the
       same service. A value of "0" will make the service bind to an ephemeral port.
+
+      <br />Not supported by <code>spark.ssl.connect</code>: the Spark Connect server serves TLS on
+      <code>spark.connect.grpc.binding.port</code>.
     </td>
     <td>ui,standalone,historyServer</td>
   </tr>
@@ -621,8 +631,11 @@ replaced with one of the above namespaces.
       page.
 
       <br />Note: If not set, the default cipher suite for the JRE will be used.
+
+      <br />For <code>spark.ssl.connect</code>, the default HTTP/2 cipher suites of gRPC are used
+      when it is not set.
     </td>
-    <td>ui,standalone,historyServer,rpc</td>
+    <td>ui,standalone,historyServer,rpc,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.keyPassword</code></td>
@@ -630,7 +643,7 @@ replaced with one of the above namespaces.
     <td>
       The password to the private key in the key store.
     </td>
-    <td>ui,standalone,historyServer,rpc</td>
+    <td>ui,standalone,historyServer,rpc,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.keyStore</code></td>
@@ -639,19 +652,19 @@ replaced with one of the above namespaces.
       Path to the key store file. The path can be absolute or relative to the directory in which the
       process is started.
     </td>
-    <td>ui,standalone,historyServer,rpc</td>
+    <td>ui,standalone,historyServer,rpc,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.keyStorePassword</code></td>
     <td>None</td>
     <td>Password to the key store.</td>
-    <td>ui,standalone,historyServer,rpc</td>
+    <td>ui,standalone,historyServer,rpc,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.keyStoreType</code></td>
     <td>JKS</td>
     <td>The type of the key store.</td>
-    <td>ui,standalone,historyServer</td>
+    <td>ui,standalone,historyServer,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.protocol</code></td>
@@ -664,7 +677,7 @@ replaced with one of the above namespaces.
       <a href="https://docs.oracle.com/en/java/javase/17/docs/specs/security/standard-names.html#additional-jsse-standard-names">this</a>
       page.
     </td>
-    <td>ui,standalone,historyServer,rpc</td>
+    <td>ui,standalone,historyServer,rpc,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.needClientAuth</code></td>
@@ -672,7 +685,7 @@ replaced with one of the above namespaces.
     <td>
       Whether to require client authentication.
     </td>
-    <td>ui,standalone,historyServer</td>
+    <td>ui,standalone,historyServer,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.trustStore</code></td>
@@ -681,19 +694,19 @@ replaced with one of the above namespaces.
       Path to the trust store file. The path can be absolute or relative to the directory in which
       the process is started.
     </td>
-    <td>ui,standalone,historyServer,rpc</td>
+    <td>ui,standalone,historyServer,rpc,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.trustStorePassword</code></td>
     <td>None</td>
     <td>Password for the trust store.</td>
-    <td>ui,standalone,historyServer,rpc</td>
+    <td>ui,standalone,historyServer,rpc,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.trustStoreType</code></td>
     <td>JKS</td>
     <td>The type of the trust store.</td>
-    <td>ui,standalone,historyServer</td>
+    <td>ui,standalone,historyServer,connect</td>
   </tr>
   <tr>
     <td><code>${ns}.openSSLEnabled</code></td>
