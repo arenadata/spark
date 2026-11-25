@@ -167,7 +167,8 @@ private[spark] object SSLOptions extends Logging {
    * Oracle blog page</a>.
    *
    * You can optionally specify the default configuration. If you do, for each setting which is
-   * missing in SparkConf, the corresponding setting is used from the default configuration.
+   * missing in SparkConf, the corresponding setting is used from the default configuration,
+   * except for `spark.ssl.connect.enabled`, which must be set explicitly.
    *
    * @param conf Spark configuration object where the settings are collected from
    * @param hadoopConf Hadoop configuration to get settings
@@ -180,7 +181,16 @@ private[spark] object SSLOptions extends Logging {
       hadoopConf: Configuration,
       ns: String,
       defaults: Option[SSLOptions] = None): SSLOptions = {
-    val enabled = conf.getBoolean(s"$ns.enabled", defaultValue = defaults.exists(_.enabled))
+
+    // Spark Connect does not inherit the default enabled setting due to backwards compatibility
+    // reasons
+    val enabledDefault = if (ns == "spark.ssl.connect") {
+      false
+    } else {
+      defaults.exists(_.enabled)
+    }
+
+    val enabled = conf.getBoolean(s"$ns.enabled", defaultValue = enabledDefault)
     if (!enabled) {
       return new SSLOptions()
     }

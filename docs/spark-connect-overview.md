@@ -374,6 +374,56 @@ HTTP/2 interface allows for the use of authenticating proxies, which makes
 it possible to secure Spark Connect without having to implement authentication
 logic in Spark directly.
 
+# Encrypting client connections with TLS
+
+The Spark Connect server can serve its gRPC endpoint over TLS. TLS is configured in the
+`spark.ssl.connect` namespace of the [SSL configuration](security.html#ssl-configuration) and is
+disabled by default. `spark.ssl.connect.enabled` is not inherited from `spark.ssl.enabled` and must
+be set explicitly. The other `spark.ssl.connect` options take the `spark.ssl` values only when
+`spark.ssl.enabled` is `true`, otherwise they must be set in the `spark.ssl.connect` namespace. A
+key store with the server certificate is required, for example in `conf/spark-defaults.conf` of the
+server:
+
+    spark.ssl.connect.enabled             true
+    spark.ssl.connect.keyStore            /path/to/keystore.jks
+    spark.ssl.connect.keyStorePassword    <password>
+
+Like in the other namespaces, the passwords can also be stored in Hadoop Credential Providers. The
+server certificate must match the host name that clients use in the connection string. The
+server keeps listening on `spark.connect.grpc.binding.port`; `spark.ssl.connect.port` is not used.
+`spark.ssl.connect.protocol` restricts the server to one TLS protocol version, such as `TLSv1.3`.
+The server fails to start with a value that is not a protocol version, such as `TLS`, also when it
+is inherited from `spark.ssl.protocol`. `spark.ssl.connect.enabledAlgorithms` restricts the cipher
+suites and must include suites that HTTP/2 allows, such as
+`TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` or the TLS 1.3 suites, because gRPC clients offer no
+others. The server fails to start when it supports none of the listed suites. When
+`spark.ssl.connect.needClientAuth` is `true`, clients must present a certificate trusted by
+`spark.ssl.connect.trustStore`, or by the default trust store of the JVM when no trust store is
+set.
+
+Applications that embed the Spark Connect server and manage the server certificate themselves can
+start it with `SparkConnectService.startWithTls` instead of `SparkConnectService.start`. It takes a
+`javax.net.ssl.KeyManagerFactory` with the server certificate, the TLS protocol versions and the
+cipher suites to enable (the defaults when empty), and returns the port of the server. The
+`spark.ssl.connect` options do not apply to it, whatever they are set to, and it does not ask
+clients for certificates.
+
+Clients connect over TLS when the connection string sets `use_ssl=true` (setting `token` implies
+it), for example `sc://myhost.com:15002/;use_ssl=true`. They verify the server certificate as
+follows:
+
+* The Scala client uses the default trust store of the JVM, which can be replaced with the
+  `javax.net.ssl.trustStore` and `javax.net.ssl.trustStorePassword` system properties.
+* The Python client uses the default root certificates of gRPC, which can be replaced with a PEM
+  file set in the `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH` environment variable.
+
+Neither client presents a client certificate, so `spark.ssl.connect.needClientAuth` requires other
+gRPC clients. Python streaming `foreachBatch` functions and streaming query listeners connect back
+to the server without TLS, so they do not work while TLS is enabled. Local Spark Connect sessions,
+such as `pyspark --remote local`, also connect to the server they start without TLS. Therefore set
+`spark.ssl.connect.enabled` only in the configuration of dedicated Spark Connect servers, not in a
+`spark-defaults.conf` shared with client hosts.
+
 # What is supported in Spark 3.4
 
 **PySpark**: In Spark 3.4, Spark Connect supports most PySpark APIs, including

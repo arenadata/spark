@@ -140,6 +140,58 @@ class SSLOptionsSuite extends SparkFunSuite {
     assert(opts.enabledAlgorithms === Set("ABC", "DEF"))
   }
 
+  test("ensure Spark Connect settings don't get enabled via inheritance") {
+    val keyStorePath = new File(this.getClass.getResource("/keystore").toURI).getAbsolutePath
+    val trustStorePath = new File(this.getClass.getResource("/truststore").toURI).getAbsolutePath
+
+    val conf = new SparkConf
+    val hadoopConf = new Configuration()
+    conf.set("spark.ssl.enabled", "true")
+    conf.set("spark.ssl.keyStore", keyStorePath)
+    conf.set("spark.ssl.keyStorePassword", "password")
+    conf.set("spark.ssl.connect.keyStorePassword", "12345")
+    conf.set("spark.ssl.keyPassword", "password")
+    conf.set("spark.ssl.keyStoreType", "JKS")
+    conf.set("spark.ssl.needClientAuth", "true")
+    conf.set("spark.ssl.trustStore", trustStorePath)
+    conf.set("spark.ssl.trustStorePassword", "password")
+    conf.set("spark.ssl.trustStoreType", "JKS")
+    conf.set("spark.ssl.enabledAlgorithms",
+      "TLS_RSA_WITH_AES_128_CBC_SHA, TLS_RSA_WITH_AES_256_CBC_SHA")
+    conf.set("spark.ssl.connect.enabledAlgorithms", "ABC, DEF")
+    conf.set("spark.ssl.protocol", "SSLv3")
+
+    val defaultOpts = SSLOptions.parse(conf, hadoopConf, "spark.ssl", defaults = None)
+    val disabledOpts = SSLOptions.parse(
+      conf, hadoopConf, "spark.ssl.connect", defaults = Some(defaultOpts))
+
+    assert(defaultOpts.enabled === true)
+    assert(disabledOpts.enabled === false)
+    assert(disabledOpts.keyStore.isEmpty)
+
+    // Now enable it and test again
+    conf.set("spark.ssl.connect.enabled", "true")
+    val opts = SSLOptions.parse(
+      conf, hadoopConf, "spark.ssl.connect", defaults = Some(defaultOpts))
+
+    assert(opts.enabled === true)
+    assert(opts.port.isEmpty)
+    assert(opts.keyStore.isDefined)
+    assert(opts.keyStore.get.getName === "keystore")
+    assert(opts.keyStore.get.getAbsolutePath === keyStorePath)
+    assert(opts.keyStorePassword === Some("12345"))
+    assert(opts.keyPassword === Some("password"))
+    assert(opts.keyStoreType === Some("JKS"))
+    assert(opts.needClientAuth === true)
+    assert(opts.trustStore.isDefined)
+    assert(opts.trustStore.get.getName === "truststore")
+    assert(opts.trustStore.get.getAbsolutePath === trustStorePath)
+    assert(opts.trustStorePassword === Some("password"))
+    assert(opts.trustStoreType === Some("JKS"))
+    assert(opts.protocol === Some("SSLv3"))
+    assert(opts.enabledAlgorithms === Set("ABC", "DEF"))
+  }
+
   test("SPARK-41719: Skip ssl sub-settings if ssl is disabled") {
     val keyStorePath = new File(this.getClass.getResource("/keystore").toURI).getAbsolutePath
     val conf = new SparkConf

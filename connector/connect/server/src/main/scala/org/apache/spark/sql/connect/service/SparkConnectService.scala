@@ -17,23 +17,30 @@
 
 package org.apache.spark.sql.connect.service
 
+import java.io.{File, FileInputStream}
+import java.security.KeyStore
 import java.util.UUID
 import java.util.concurrent.{Callable, TimeUnit}
+import javax.net.ssl.{KeyManagerFactory, TrustManagerFactory}
 
 import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
 
 import com.google.common.base.Ticker
 import com.google.common.cache.{CacheBuilder, RemovalListener, RemovalNotification}
 import com.google.protobuf.Message
 import io.grpc.{BindableService, MethodDescriptor, Server, ServerMethodDefinition, ServerServiceDefinition}
 import io.grpc.MethodDescriptor.PrototypeMarshaller
-import io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.{GrpcSslContexts, NettyServerBuilder}
 import io.grpc.protobuf.ProtoUtils
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.stub.StreamObserver
+import io.netty.buffer.ByteBufAllocator
+import io.netty.handler.ssl.{ClientAuth, SslContext, SslContextBuilder, SupportedCipherSuiteFilter}
+import io.netty.util.ReferenceCountUtil
 import org.apache.commons.lang3.StringUtils
 
-import org.apache.spark.{SparkContext, SparkEnv, SparkSQLException}
+import org.apache.spark.{SparkContext, SparkEnv, SparkSQLException, SSLOptions}
 import org.apache.spark.connect.proto
 import org.apache.spark.connect.proto.{AddArtifactsRequest, AddArtifactsResponse, SparkConnectServiceGrpc}
 import org.apache.spark.connect.proto.SparkConnectServiceGrpc.AsyncService
@@ -44,6 +51,7 @@ import org.apache.spark.sql.connect.config.Connect.{CONNECT_GRPC_BINDING_PORT, C
 import org.apache.spark.sql.connect.ui.{SparkConnectServerAppStatusStore, SparkConnectServerListener, SparkConnectServerTab}
 import org.apache.spark.sql.connect.utils.ErrorUtils
 import org.apache.spark.status.ElementTrackingStore
+import org.apache.spark.util.Utils
 
 /**
  * The SparkConnectService implementation.
@@ -417,15 +425,104 @@ object SparkConnectService extends Logging {
   }
 
   /**
-   * Starts the GRPC Service.
+   * Builds the server [[SslContext]] of the GRPC service from the `spark.ssl.connect` options.
+   * `port` is not used: the service always listens on `spark.connect.grpc.binding.port`.
    */
-  private def startGRPCService(): Unit = {
+  private[connect] def createSslContext(sslOptions: SSLOptions): SslContext = {
+    val keyStoreFile = sslOptions.keyStore.getOrElse {
+      throw new IllegalArgumentException(
+        "spark.ssl.connect.keyStore must be set when spark.ssl.connect.enabled is true")
+    }
+    val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm)
+    keyManagerFactory.init(
+      loadKeyStore(keyStoreFile, sslOptions.keyStoreType, sslOptions.keyStorePassword),
+      sslOptions.keyPassword.orElse(sslOptions.keyStorePassword).map(_.toCharArray).orNull)
+    val trustManagerFactory = if (sslOptions.needClientAuth) {
+      // Without a trust store, client certificates are verified against the JVM default one.
+      val trustStore = sslOptions.trustStore.map { file =>
+        loadKeyStore(file, sslOptions.trustStoreType, sslOptions.trustStorePassword)
+      }
+      val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
+      factory.init(trustStore.orNull)
+      Some(factory)
+    } else {
+      None
+    }
+    buildSslContext(
+      keyManagerFactory,
+      trustManagerFactory,
+      sslOptions.protocol.toSeq,
+      sslOptions.enabledAlgorithms.toSeq,
+      protocolsName = "spark.ssl.connect.protocol",
+      cipherSuitesName = "spark.ssl.connect.enabledAlgorithms")
+  }
+
+  /**
+   * Builds a server [[SslContext]] with the server certificate of `keyManagerFactory`. Clients
+   * must present a certificate trusted by `trustManagerFactory` when it is defined. Empty
+   * `protocols` or `cipherSuites` keep the defaults of the TLS provider and of GRPC. The names
+   * identify `protocols` and `cipherSuites` in the error messages.
+   */
+  private def buildSslContext(
+      keyManagerFactory: KeyManagerFactory,
+      trustManagerFactory: Option[TrustManagerFactory],
+      protocols: Seq[String],
+      cipherSuites: Seq[String],
+      protocolsName: String,
+      cipherSuitesName: String): SslContext = {
+    val builder = GrpcSslContexts.configure(SslContextBuilder.forServer(keyManagerFactory))
+    trustManagerFactory.foreach { factory =>
+      builder.trustManager(factory).clientAuth(ClientAuth.REQUIRE)
+    }
+    if (protocols.nonEmpty) {
+      builder.protocols(protocols.asJava)
+    }
+    if (cipherSuites.nonEmpty) {
+      builder.ciphers(cipherSuites.asJava, SupportedCipherSuiteFilter.INSTANCE)
+    }
+    val sslContext = builder.build()
+    // The cipher suites that the TLS provider does not support are left out, so every handshake
+    // would fail without any of them.
+    if (cipherSuites.nonEmpty && sslContext.cipherSuites().isEmpty) {
+      throw new IllegalArgumentException(
+        s"No supported cipher suite in $cipherSuitesName (${cipherSuites.mkString(", ")})")
+    }
+    // Netty checks the enabled protocols only when it creates the engine of a connection, so an
+    // unsupported protocol, e.g. the SSLContext algorithm `TLS`, would fail every handshake.
+    try {
+      ReferenceCountUtil.release(sslContext.newEngine(ByteBufAllocator.DEFAULT))
+    } catch {
+      case e: IllegalArgumentException if protocols.nonEmpty =>
+        throw new IllegalArgumentException(
+          s"Unsupported protocol in $protocolsName (${protocols.mkString(", ")}): it must " +
+            "contain only TLS protocol versions such as TLSv1.2 or TLSv1.3",
+          e)
+    }
+    sslContext
+  }
+
+  private def loadKeyStore(
+      file: File,
+      storeType: Option[String],
+      password: Option[String]): KeyStore = {
+    val keyStore = KeyStore.getInstance(storeType.getOrElse(KeyStore.getDefaultType))
+    Utils.tryWithResource(new FileInputStream(file)) { in =>
+      keyStore.load(in, password.map(_.toCharArray).orNull)
+    }
+    keyStore
+  }
+
+  /**
+   * Starts the GRPC Service. It serves TLS with `sslContext` when it is defined.
+   */
+  private def startGRPCService(sslContext: Option[SslContext]): Unit = {
     val debugMode = SparkEnv.get.conf.getBoolean("spark.connect.grpc.debug.enabled", true)
     val port = SparkEnv.get.conf.get(CONNECT_GRPC_BINDING_PORT)
     val sb = NettyServerBuilder
       .forPort(port)
       .maxInboundMessageSize(SparkEnv.get.conf.get(CONNECT_GRPC_MAX_INBOUND_MESSAGE_SIZE).toInt)
       .addService(new SparkConnectService(debugMode))
+    sslContext.foreach(context => sb.sslContext(context))
 
     // Add all registered interceptors to the server builder.
     SparkConnectInterceptorRegistry.chainInterceptors(sb)
@@ -435,14 +532,89 @@ object SparkConnectService extends Logging {
     if (debugMode) {
       sb.addService(ProtoReflectionService.newInstance())
     }
-    server = sb.build
-    server.start()
+    // Set only once started, so that a server that failed to start is not taken as running.
+    val newServer = sb.build
+    newServer.start()
+    server = newServer
+  }
+
+  private[connect] def isRunning: Boolean = server != null && !server.isShutdown
+
+  private def startService(sc: SparkContext, sslContext: Option[SslContext]): Unit = {
+    startGRPCService(sslContext)
+    try {
+      createListenerAndUI(sc)
+    } catch {
+      case NonFatal(e) =>
+        // The server is bound already, so it would be taken as running.
+        uiTab.foreach(_.detach())
+        server.shutdownNow()
+        throw e
+    }
   }
 
   // Starts the service
   def start(sc: SparkContext): Unit = {
-    startGRPCService()
-    createListenerAndUI(sc)
+    if (isRunning) {
+      logWarning("The Spark Connect service has already started.")
+      return
+    }
+
+    val sslOptions = SparkEnv.get.securityManager.getSSLOptions("connect")
+    val sslContext = if (sslOptions.enabled) Some(createSslContext(sslOptions)) else None
+    startService(sc, sslContext)
+    if (sslContext.isDefined) {
+      logInfo(
+        s"Spark Connect gRPC service serves TLS on port ${server.getPort} " +
+          s"(needClientAuth=${sslOptions.needClientAuth})")
+    }
+  }
+
+  /**
+   * Starts the service like [[start]], but the GRPC server serves TLS with the server certificate
+   * of `keyManagerFactory` and does not ask clients for certificates.
+   *
+   * This method is meant for applications that embed the service and manage the server
+   * certificate themselves. It does not read the `spark.ssl.connect` options at all, whatever
+   * they are set to, e.g. in `spark-defaults.conf`.
+   *
+   * @param sc
+   *   the SparkContext the service runs in.
+   * @param keyManagerFactory
+   *   an initialized factory of the key managers with the server certificate.
+   * @param protocols
+   *   the TLS protocol versions to enable, such as `TLSv1.2` or `TLSv1.3`. When empty, the
+   *   defaults of the TLS provider are enabled.
+   * @param cipherSuites
+   *   the cipher suites to enable. The ones that the TLS provider does not support are left out.
+   *   When empty, the defaults of GRPC are enabled.
+   * @return
+   *   the port the GRPC server is bound to.
+   * @throws IllegalArgumentException
+   *   if `protocols` contains a protocol that the TLS provider does not support, or if
+   *   `cipherSuites` contains no cipher suite that it supports. The service is not started then.
+   * @throws IllegalStateException
+   *   if the service is already running. It can be started again after [[stop]].
+   */
+  def startWithTls(
+      sc: SparkContext,
+      keyManagerFactory: KeyManagerFactory,
+      protocols: Seq[String],
+      cipherSuites: Seq[String]): Int = {
+    if (isRunning) {
+      throw new IllegalStateException("The Spark Connect service has already started.")
+    }
+    val sslContext = buildSslContext(
+      keyManagerFactory,
+      trustManagerFactory = None,
+      protocols,
+      cipherSuites,
+      protocolsName = "protocols",
+      cipherSuitesName = "cipherSuites")
+    startService(sc, Some(sslContext))
+    val port = server.getPort
+    logInfo(s"Spark Connect gRPC service serves TLS on port $port (needClientAuth=false)")
+    port
   }
 
   def stop(timeout: Option[Long] = None, unit: Option[TimeUnit] = None): Unit = {

@@ -511,8 +511,13 @@ application configurations will be ignored.
 Configuration for SSL is organized hierarchically. The user can configure the default SSL settings
 which will be used for all the supported communication protocols unless they are overwritten by
 protocol-specific settings. This way the user can easily provide the common settings for all the
-protocols without disabling the ability to configure each one individually. The following table
-describes the SSL configuration namespaces:
+protocols without disabling the ability to configure each one individually. Note that all settings
+are inherited this way, *except* for `spark.ssl.connect.enabled` which must be explicitly set. The
+`spark.ssl.connect` settings inherit the default settings only when `spark.ssl.enabled` is `true`;
+otherwise every setting of the Spark Connect server, such as its key store, must be set in the
+`spark.ssl.connect` namespace.
+
+The following table describes the SSL configuration namespaces:
 
 <table>
   <thead>
@@ -540,6 +545,10 @@ describes the SSL configuration namespaces:
     <td><code>spark.ssl.historyServer</code></td>
     <td>History Server Web UI</td>
   </tr>
+  <tr>
+    <td><code>spark.ssl.connect</code></td>
+    <td>Spark Connect server</td>
+  </tr>
 </table>
 
 The full breakdown of available SSL options can be found below. The `${ns}` placeholder should be
@@ -563,6 +572,9 @@ replaced with one of the above namespaces.
 
       <br />When not set, the SSL port will be derived from the non-SSL port for the
       same service. A value of "0" will make the service bind to an ephemeral port.
+
+      <br />Not supported by <code>spark.ssl.connect</code>: the Spark Connect server serves TLS on
+      <code>spark.connect.grpc.binding.port</code>.
     </td>
   </tr>
   <tr>
@@ -577,6 +589,9 @@ replaced with one of the above namespaces.
       page.
 
       <br />Note: If not set, the default cipher suite for the JRE will be used.
+
+      <br />For <code>spark.ssl.connect</code>, the default HTTP/2 cipher suites of gRPC are used
+      when it is not set.
     </td>
   </tr>
   <tr>
@@ -614,6 +629,10 @@ replaced with one of the above namespaces.
       section of the Java security guide. For Java 8, the list can be found at
       <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#jssenames">this</a>
       page.
+
+      <br />For <code>spark.ssl.connect</code>, this is the only protocol version the Spark Connect
+      server enables, so it must be one version such as <code>TLSv1.2</code> or
+      <code>TLSv1.3</code>, not a generic name such as <code>TLS</code>.
     </td>
   </tr>
   <tr>
